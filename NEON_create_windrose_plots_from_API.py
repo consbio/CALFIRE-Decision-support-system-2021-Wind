@@ -22,16 +22,16 @@ import requests
 
 NEON_site = "SOAP"
 
-start_date = "2019-06-01"
-end_date = "2019-06-30"
+start_date = "2023-04-24"
+end_date = "2023-04-27"
 
 # Daytime (North winds, slow)
 #start_hour = 03
 #end_hour = 15
 
 # Nighttime (South winds, fast)
-start_hour = 15
-end_hour = 03
+start_hour = 03
+end_hour = 15
 
 interval = "30min"
 sensor_position = "000.050"
@@ -107,7 +107,6 @@ plot_title = "NEON FIELD SITE: " + NEON_site + "\n DATES: " + datetime.strftime(
 
 ax.set_title(plot_title, pad=8)
 
-#output_file = output_dir + os.sep + "NEON_" + NEON_site + "_WINDROSE_" + datetime.strftime(start_date, "%Y%m%d") + "-" + datetime.strftime(end_date, "%Y%m%d") + "_" + str(start_hour).zfill(2) + "_" + str(end_hour).zfill(2) + "_" + interval + "_" + sensor_position + ".png"
 output_file = output_dir + os.sep + "_".join(["NEON", NEON_site, "WINDROSE", datetime.strftime(start_date, "%Y%m%d"), datetime.strftime(end_date, "%Y%m%d"), str(start_hour).zfill(2), str(end_hour).zfill(2), interval, sensor_position]) + ".png"
 
 plt.savefig(output_file)
