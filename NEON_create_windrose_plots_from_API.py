@@ -25,7 +25,12 @@ NEON_site = "SOAP"
 start_date = "2019-06-01"
 end_date = "2019-06-30"
 
-start_hour = 12
+# Daytime (North winds, slow)
+#start_hour = 03
+#end_hour = 15
+
+# Nighttime (South winds, fast)
+start_hour = 15
 end_hour = 03
 
 interval = "30min"
