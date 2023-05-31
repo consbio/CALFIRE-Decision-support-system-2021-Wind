@@ -4,8 +4,10 @@
 # Date created: 05/31/2023
 # Python Version: 2.7
 # Description:
-# Creates a windrose plot from 2D wind data acquired through the NEON API:
+# Creates a windrose plot from 2D wind speed and direction data acquired through the NEON API:
 # https://www.neonscience.org/resources/learning-hub/tutorials/neon-api-intro-requests-py
+# More information on the data used in this script can be found at the following URL:
+# https://data.neonscience.org/data-products/DP1.00001.001
 
 #######################################################################################################################
 
