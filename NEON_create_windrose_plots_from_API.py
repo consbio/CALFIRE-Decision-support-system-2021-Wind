@@ -26,7 +26,7 @@ start_date = "2023-04-24"
 end_date = "2023-04-27"
 
 # Daytime (North winds, slow)
-#start_hour = 03
+#start_hour = 3
 #end_hour = 15
 
 # Nighttime (South winds, fast)
