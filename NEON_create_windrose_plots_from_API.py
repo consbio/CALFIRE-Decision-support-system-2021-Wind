@@ -30,7 +30,7 @@ end_date = "2023-04-27"
 #end_hour = 15
 
 # Nighttime (South winds, fast)
-start_hour = 03
+start_hour = 3
 end_hour = 15
 
 interval = "30min"
