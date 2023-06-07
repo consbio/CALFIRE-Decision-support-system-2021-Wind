@@ -20,7 +20,6 @@ extent_name = extent_fc.split(os.sep)[-1]
 
 fishnet_input_points_extent = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Volume\Vector_Fishnets.gdb\Fishnet_LiDAR_Point_" + extent_name
 
-#input_points_with_z = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermedate\Volume\Volume.gdb\NEON_D17_SOAP_Las_to_Multipoint_Subset_Small_Subset_to_Point"
 input_points_with_z_and_height_from_ground = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb\Lidar_Points_with_Elevation_" + extent_name
 
 NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_298000_4100000_classified_point_cloud_colorized.laz"
@@ -43,7 +42,6 @@ arcpy.env.extent = extent_fc
 def pre_processing():
 
     print("Converting LAS file...")
-
     lidar_folder = intermediate_folder + os.sep + "Lidar"
     lidar_file_conversion_name = NEON_lidar_laz_file.split(os.sep)[-1].split(".")[0] + "_LiDAR_LAS_File_Conversion.lasd"
     lidar_file_conversion = lidar_folder + os.sep + lidar_file_conversion_name
@@ -55,8 +53,8 @@ def pre_processing():
         lidar_file_conversion,
         "NO_FILES", None)
 
-    lidar_clip_file = lidar_folder + os.sep + lidar_file_conversion_name.split(".")[0] + "_Clip" + ".lasd"
     print("Extracting LAS file to study area...")
+    lidar_clip_file = lidar_folder + os.sep + lidar_file_conversion_name.split(".")[0] + "_Clip" + ".lasd"
     arcpy.ddd.ExtractLas(
         lidar_file_conversion,
         lidar_folder,
@@ -97,13 +95,11 @@ def pre_processing():
     # The extent comes up short of the points.
     dtm_extraction = tmp_gdb + os.sep + "dtm_extraction"
     arcpy.sa.ExtractValuesToPoints(lidar_multipoint_to_points, NEON_DTM, dtm_extraction, "", "VALUE_ONLY")
-
     arcpy.AlterField_management(dtm_extraction, "RASTERVALU", "dtm_extraction")
 
     print("Extracting CHM to points...")
     # The extent comes up short of the points.
     arcpy.sa.ExtractValuesToPoints(dtm_extraction, NEON_CHM, input_points_with_z_and_height_from_ground, "", "VALUE_ONLY")
-
     arcpy.AlterField_management(input_points_with_z_and_height_from_ground, "RASTERVALU", "chm_extraction")
 
 
@@ -184,10 +180,13 @@ def count_point_returns():
 
 
 def post_processing():
+    print("Adding GRID ID to final output...")
     tmp_points = os.path.join(tmp_gdb, "tmp_points")
     tmp_points_with_dtm = os.path.join(tmp_gdb, "tmp_points_with_dtm")
     arcpy.AddField_management(output_fc, "GRID_ID", "LONG")
     arcpy.CalculateField_management(output_fc, "GRID_ID", "!OBJECTID!")
+
+    print("Adding DTM to final output...")
     arcpy.FeatureToPoint_management(output_fc, tmp_points)
     arcpy.sa.ExtractValuesToPoints(tmp_points, NEON_DTM, tmp_points_with_dtm)
     arcpy.JoinField_management(output_fc,"GRID_ID",tmp_points_with_dtm, "GRID_ID", ["RASTERVALU"])
