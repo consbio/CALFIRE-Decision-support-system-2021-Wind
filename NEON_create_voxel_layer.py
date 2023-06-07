@@ -102,13 +102,13 @@ def create_voxel():
 
     #Create domain for longitude/latitude
     #Each domain has unique values, no repeating numbers, and are sorted (to be monotonic)
-    xDomain = np.sort(np.unique(dfPoints.iloc[:,8].values)) # 0th column contains x values
+    xDomain = np.sort(np.unique(dfPoints.iloc[:,7].values)) # 0th column contains x values
     print(xDomain)
-    yDomain = np.sort(np.unique(dfPoints.iloc[:,9].values)) # 1st column contains y values
+    yDomain = np.sort(np.unique(dfPoints.iloc[:,8].values)) # 1st column contains y values
     print(yDomain)
     zDomain = np.sort(np.unique(dfPoints.iloc[:,4].values)) # 2nd column contains z values
     print(zDomain)
-    tDomain = np.sort(np.unique(dfPoints.iloc[:,7].values)) # 3rd column contains t values
+    tDomain = np.sort(np.unique(dfPoints.iloc[:,9].values)) # 3rd column contains t values
     print(tDomain)
 
     #Create NetCDF file
