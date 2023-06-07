@@ -2,7 +2,7 @@
 # File name: NEON_calculate_minimum_volume_geometery.py
 # Author: Mike Gough
 # Date created: 06/05/2023
-# Python Version: 2.7
+# Python Version: 3.x
 # Description:
 # Calculates the minimum bounding volume for a set of pre-processed LiDAR point returns.
 # Requires a fishnet with X,Y coordinates of the centroid (spatial join with fishnet labels), and a set of input points

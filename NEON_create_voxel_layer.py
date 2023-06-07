@@ -2,7 +2,7 @@
 # File name: NEON_create_voxel_layer.py
 # Author: Mike Gough
 # Date created: 06/06/2023
-# Python Version: 2.7
+# Python Version: 3.x
 # Description:
 # Creates a NetCDF Voxel Layer from a CSV file generated from a vector fishnet containing point counts at different
 # heights above the ground.

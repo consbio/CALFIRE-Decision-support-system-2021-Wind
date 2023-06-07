@@ -2,7 +2,7 @@
 # File name: NEON_count_LiDAR_point_returns.py
 # Author: Mike Gough
 # Date created: 06/01/2023
-# Python Version: 2.7
+# Python Version: 3.x
 # Description:
 # Counts the number of LiDAR point returns for a set of regular vertical height intervals measured from the ground(DTM).
 # The output is a fishnet (vector based grid) with a field containing a point count for each interval
