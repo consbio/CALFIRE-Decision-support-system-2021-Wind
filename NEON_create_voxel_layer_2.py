@@ -1,11 +1,11 @@
 ########################################################################################################################
 # File name: NEON_create_voxel_layer.py
 # Author: Mike Gough
-# Date created: 06/06/2023
+# Date created: 06/13/2023
 # Python Version: 3.x
 # Description:
-# Creates a NetCDF Voxel Layer from a CSV file generated from a vector fishnet containing point counts at different
-# heights above the ground.
+# Creates a NetCDF voxel layer from a LiDAR file and an extent. The voxel layer contains point counts at different
+# absolute elevations. This script does not rely on the output from the NEON_count_LiDAR_point_returns script.
 ########################################################################################################################
 import os
 import arcpy
