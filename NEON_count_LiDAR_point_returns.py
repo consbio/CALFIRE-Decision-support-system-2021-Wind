@@ -95,12 +95,12 @@ def pre_processing():
     # The extent comes up short of the points.
     dtm_extraction = tmp_gdb + os.sep + "dtm_extraction"
     arcpy.sa.ExtractValuesToPoints(lidar_multipoint_to_points, NEON_DTM, dtm_extraction, "", "VALUE_ONLY")
-    arcpy.AlterField_management(dtm_extraction, "RASTERVALU", "dtm_extraction")
+    arcpy.AlterField_management(dtm_extraction, "RASTERVALU", "dtm_extraction", "dtm_extraction")
 
     print("Extracting CHM to points...")
     # The extent comes up short of the points.
     arcpy.sa.ExtractValuesToPoints(dtm_extraction, NEON_CHM, input_points_with_z_and_height_from_ground, "", "VALUE_ONLY")
-    arcpy.AlterField_management(input_points_with_z_and_height_from_ground, "RASTERVALU", "chm_extraction")
+    arcpy.AlterField_management(input_points_with_z_and_height_from_ground, "RASTERVALU", "chm_extraction", "chm_extraction")
 
 
     print("Creating Fishnet...")
