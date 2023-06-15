@@ -145,7 +145,7 @@ def create_voxel():
 
     #Assign variable attributes
 
-    ncData.long_name = "My test data"
+    ncData.long_name = "LiDAR Point Return Count"
 
     ncZ.positive = 'up'
 
