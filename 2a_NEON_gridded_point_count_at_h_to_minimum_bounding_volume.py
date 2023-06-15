@@ -1,5 +1,5 @@
 ########################################################################################################################
-# File name: NEON_calculate_minimum_bounding_volume.py
+# File name: 2a_NEON_gridded_point_count_at_h_to_minimum_bounding_volume.py
 # Author: Mike Gough
 # Date created: 06/05/2023
 # Python Version: 3.x

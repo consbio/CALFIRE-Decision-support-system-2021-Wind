@@ -1,5 +1,5 @@
 ########################################################################################################################
-# File name: NEON_create_voxel_layer.py
+# File name: NEON_lidar_to_voxel.py
 # Author: Mike Gough
 # Date created: 06/13/2023
 # Python Version: 3.x

@@ -1,5 +1,5 @@
 ########################################################################################################################
-# File name: NEON_create_voxel_layer.py
+# File name: 2b_NEON_gridded_point_count_at_h_to_voxel.py
 # Author: Mike Gough
 # Date created: 06/06/2023
 # Python Version: 3.x

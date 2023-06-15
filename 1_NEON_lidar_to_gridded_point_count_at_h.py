@@ -1,5 +1,5 @@
 ########################################################################################################################
-# File name: NEON_count_LiDAR_point_returns.py
+# File name: 1_NEON_lidar_to_gridded_point_count_at_h.py
 # Author: Mike Gough
 # Date created: 06/01/2023
 # Python Version: 3.x
