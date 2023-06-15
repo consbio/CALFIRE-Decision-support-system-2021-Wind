@@ -18,8 +18,8 @@ import pandas as pd
 
 # Input Parameters
 
-version = "v2_test_time"
-extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_2_tower_location_small"
+version = "v3_chm_offset_10"
+extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
 extent_name = extent_fc.split(os.sep)[-1]
 
 voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
