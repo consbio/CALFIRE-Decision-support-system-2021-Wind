@@ -220,8 +220,8 @@ def create_csv():
     tmp_fishnet_points_to_merge = []
 
     count = 1
-    while z_end <= 1210:  # For testing
-    #while z_end <= z_max + 1:
+    #while z_end <= 1210:  # For testing
+    while z_end <= z_max + 1:
         print("\nElevation Slice: " + str(count) + "/" + str(z_max - z_min))
         print("Starting Elevation: " + str(z_start))
         print("Ending Elevation: " + str(z_end))
