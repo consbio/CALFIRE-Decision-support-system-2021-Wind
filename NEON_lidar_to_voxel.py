@@ -11,9 +11,6 @@
 import os
 import arcpy
 from datetime import datetime
-import time
-import pytz
-import dateutil.parser
 arcpy.env.overwriteOutput = True
 from netCDF4 import Dataset
 import numpy as np
@@ -76,10 +73,6 @@ print("\nStart Time: " + str(start_script))
 las_file_parse_date = datetime.strptime(NEON_lidar_laz_file.split("NEON.")[-1].split(".")[5] + '+0000', "%Y-%m%z") # Specify Time Zone as GMT
 
 print("\nLiDAR File Datetime: " + str(las_file_parse_date))
-
-# POSIX timestamp as float
-#las_file_date = dateutil.parser.parse(las_file_parse_date).timestamp()
-#las_file_date = dateutil.parser.parse(las_file_parse_date).toordinal()
 
 # String time
 #las_file_date = las_file_parse_date.strftime("%Y-%m-%d %H:%M:%S")
