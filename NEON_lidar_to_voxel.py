@@ -171,7 +171,7 @@ def pre_processing():
     arcpy.AlterField_management(lidar_points_with_z_dtm_and_chm, "RASTERVALU", "chm_extraction", "chm_extraction")
 
     print("\nCalculating height of each point from ground (DTM).")
-    print("Points less than " + str(starting_height) + " meter from the ground will be dropped.")
+    print("Points less than " + str(starting_height) + " meter from the ground will be dropped.\n")
     arcpy.AddField_management(lidar_points_with_z_dtm_and_chm, "height_from_ground", "LONG")
 
     with arcpy.da.UpdateCursor(lidar_points_with_z_dtm_and_chm, ["Z_max", "dtm_extraction", "chm_extraction", "height_from_ground"]) as uc:
@@ -285,7 +285,7 @@ def create_csv():
     #arcpy.AddField_management(merged_fishnet_points, "Time", "TEXT")
     #arcpy.CalculateField_management(merged_fishnet_points, "Time", "'" + las_file_date + "'")
 
-    print("Exporting to CSV...\n")
+    print("Exporting to CSV...")
     output_csv_dir = os.path.dirname(output_csv)
     output_csv_name = os.path.basename(output_csv)
     arcpy.TableToTable_conversion(merged_fishnet_points, output_csv_dir, output_csv_name)
