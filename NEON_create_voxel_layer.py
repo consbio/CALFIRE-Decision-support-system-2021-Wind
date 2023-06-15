@@ -5,7 +5,7 @@
 # Python Version: 3.x
 # Description:
 # Creates a NetCDF Voxel Layer from a CSV file generated from a vector fishnet containing point counts at different
-# heights above the ground.
+# heights above the ground (the output from 1_NEON_count_LiDAR_point_returns.py)
 ########################################################################################################################
 import os
 import arcpy
