@@ -141,6 +141,7 @@ def pre_processing():
     arcpy.AlterField_management(lidar_points_with_z_dtm_and_chm, "RASTERVALU", "chm_extraction", "chm_extraction")
 
     print("Calculating height of each point from ground (DTM)")
+    print("Points less than " + str(starting_height) + " meter from the ground will be dropped.")
     arcpy.AddField_management(lidar_points_with_z_dtm_and_chm, "height_from_ground", "DOUBLE")
 
     with arcpy.da.UpdateCursor(lidar_points_with_z_dtm_and_chm, ["Z_max", "dtm_extraction", "chm_extraction", "height_from_ground"]) as uc:
@@ -154,7 +155,8 @@ def pre_processing():
                 print("Deleting point with height = " + str(height_from_ground) + ". CHM is " + str(chm) + "This point is " + str(offset) + " above the CHM. Max CHM offset is " + str(max_chm_offset))
                 uc.deleteRow()
             elif starting_height and height_from_ground <= starting_height:
-                print("Deleting point with height = " + str(height_from_ground) + ". Starting height is " + str(starting_height))
+                # Too many print statements
+                #print("Deleting point with height = " + str(height_from_ground) + ". Starting height is " + str(starting_height))
                 uc.deleteRow()
             else:
                 if height_from_ground < 0:
