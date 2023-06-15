@@ -240,6 +240,8 @@ def create_csv():
         tmp_fishnet_with_point_count = os.path.join(tmp_gdb, "fishnet_with_point_count_" + str(z_start) + "_" + str(z_end))
         expression = "Z_max >= " + str(z_start) + " And Z_max < " + str(z_end)
 
+        print("Joining LiDAR points to fishnet using CONTAINS method...")
+
         input_point_layer = arcpy.MakeFeatureLayer_management(lidar_points_with_z_dtm_and_chm)
         arcpy.management.SelectLayerByAttribute(input_point_layer, "NEW_SELECTION", expression, None)
         arcpy.analysis.SpatialJoin(tmp_fishnet,
@@ -249,6 +251,7 @@ def create_csv():
 
         arcpy.AlterField_management(tmp_fishnet_with_point_count, "Join_Count", "point_returns", "point_returns")
 
+        print("Converting fishnet to points...")
         tmp_fishnet_points = os.path.join(tmp_gdb, "fishnet_with_point_count_point_conversion_" + str(z_start) + "_" + str(z_end))
         arcpy.FeatureToPoint_management(tmp_fishnet_with_point_count, tmp_fishnet_points)
 
