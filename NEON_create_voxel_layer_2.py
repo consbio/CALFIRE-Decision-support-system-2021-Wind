@@ -4,9 +4,10 @@
 # Date created: 06/13/2023
 # Python Version: 3.x
 # Description:
-# Creates a NetCDF voxel layer from a LiDAR file and an extent. The voxel layer contains point counts at different
-# absolute elevations. This script does not rely on the output from the NEON_count_LiDAR_point_returns script.
+# Creates a NetCDF voxel layer from a LiDAR file and an extent. The voxel layer contains an aggregation of LiDAR point
+# counts on a regular volumetric grid.
 ########################################################################################################################
+
 import os
 import arcpy
 from datetime import datetime
@@ -14,7 +15,7 @@ arcpy.env.overwriteOutput = True
 
 # Input Parameters
 
-version = "v2"
+version = "v3_chm_offset_10"
 extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
 extent_name = extent_fc.split(os.sep)[-1]
 
@@ -69,6 +70,11 @@ arcpy.env.extent = extent_fc
 
 
 def pre_processing():
+    """
+    This function performs the preprocessing of the LiDAR las file required to create the CSV file. The output is a
+    point feature class containing LiDAR points between the user defined starting height and the CHM offset, and a field
+    for the Z value, CHM, and DTM.
+    """
 
     if os.path.exists(lidar_file_conversion):
         print("Deleting " + lidar_file_conversion)
@@ -166,19 +172,28 @@ def pre_processing():
 
 
 def create_csv():
+    """
+    This function creates a CSV file containing LiDAR point counts aggregated to a regular volumetric grid (X,Y,Z) like
+    a Rubik's cube. This is required in order to create a voxel layer.
+    The lidar point returns are not initially structured like this; they are scattered in every x,y,z direction.
+    The values in the z_max and z_min variables are used to determine the elevation "slices" used.
+    For example a z_min of 1000 would mean that the first layer of voxels would be at an elevation of 1000m,
+    and a z_max of 2000 would mean that the last f voxels would be at an elevation of 2000m.
+    """
 
-    # Have to use z values since CHM is canopy height, not elevation of canopy. Large Z values have already been eliminated.
+    # Set the max elevation slice to be used in the "cube".
     all_z_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "Z_max")]
     z_max = int(round(max(all_z_values), 1))
 
-    # Use DTM for the min z value instead of min Lidar Z value because of a lidar point that was 479.52m.
-    # This resulted in excessive iterations. Switched max z value to max CHM.
-
+    # Set the min elevation slice to be used in the "cube".
+    # Use DTM for the min z value instead of min Lidar Z value because of a lidar point error that was ~500m below the surface.
+    # This resulted in excessive iterations.
     all_dtm_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "dtm_extraction")]
     z_min = int(min(all_dtm_values))
 
     print("\nMin Global Elevation (from DTM): " + str(z_min))
-    print("Max Global Elevation (from CHM): " + str(z_max))
+    print("Max Global Elevation (from LiDAR Z values after errors removed): " + str(z_max))
+    print("\nThese values are used to determine the starting and ending elevation 'slices'.")
 
     z_start = z_min
     z_end = z_min + voxel_size
@@ -186,8 +201,8 @@ def create_csv():
     # Create a fishnet and fishnet points for each z slice containing a count of the point returns.
     tmp_fishnet_points_to_merge = []
 
-    while z_end <= z_max + 1:
     #while z_end <= 1209: # For testing
+    while z_end <= z_max + 1:
         print("\nStarting Elevation: " + str(z_start))
         print("Ending Elevation: " + str(z_end))
 
@@ -207,7 +222,6 @@ def create_csv():
 
         input_point_layer = arcpy.MakeFeatureLayer_management(lidar_points_with_z_dtm_and_chm)
         arcpy.management.SelectLayerByAttribute(input_point_layer, "NEW_SELECTION", expression, None)
-        #arcpy.analysis.SpatialJoin(tmp_fishnet, input_point_layer, tmp_fishnet_with_point_count, "JOIN_ONE_TO_ONE", "KEEP_ALL", '' "CONTAINS", None)
         arcpy.analysis.SpatialJoin(tmp_fishnet,
                                    input_point_layer,
                                    tmp_fishnet_with_point_count, "JOIN_ONE_TO_ONE", "KEEP_ALL",'',
@@ -249,7 +263,9 @@ def create_csv():
 
 def create_voxel():
 
-    #filePath = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Points_To_CSV\lidar_multi_points_to_points_join_xyz_xy_table_to_point_subset.csv"
+    """ This function creates the NetCDF voxel layer from the CSV. The code is a modified version of the "Create a voxel
+    layer from a CSV file" code available on the ESRI website:
+    https://pro.arcgis.com/en/pro-app/latest/help/mapping/layer-properties/create-a-voxel-layer.htm """
 
     from netCDF4 import Dataset
     import numpy as np
