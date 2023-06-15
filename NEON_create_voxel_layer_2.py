@@ -10,18 +10,18 @@
 import os
 import arcpy
 from datetime import datetime
-import math
-import netCDF4
-import numpy as np
-import xarray
-import datetime as dt
 arcpy.env.overwriteOutput = True
 
 # Input Parameters
 
-version = "v1"
+version = "v2"
 extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
 extent_name = extent_fc.split(os.sep)[-1]
+
+voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
+height_error_tolerance = 5  # LiDAR point returns greater than this value above the CHM will be considered errors and will be deleted (units are m).
+ground_offset = 1
+output_proj = 'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]'
 
 NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_298000_4100000_classified_point_cloud_colorized.laz"
 NEON_DTM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_DTM.tif"
@@ -29,15 +29,12 @@ NEON_CHM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Ecos
 
 tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch\Scratch.gdb"
 tmp_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch"
+csv_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\CSV"
 intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb"
 intermediate_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume"
 
-z_interval = 1 # Interval used to create a vertical slice for aggregating the LiDAR points in an x,y,z cube.
-height_error_tolerance = 3  # Lidar point returns greater than this value above the CHM will be considered errors and deleted. Units = Meters
-
-output_proj = 'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]'
-
-arcpy.env.extent = extent_fc
+# This version of the voxel script does not need this file generated from NEON_count_LiDAR_point_returns.py
+#count_lidar_point_returns_output = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\segmented_heights_above_ground_" + extent_name + "_" + version
 
 # Derived Parameters
 
@@ -58,17 +55,32 @@ lidar_points_with_z_dtm_and_chm = os.path.join(intermediate_gdb, "lidar_points_w
 fishnet_input_points_extent = os.path.join(intermediate_gdb, "fishnet_lidar_point_" + extent_name + "_" + version)
 merged_fishnet_points = os.path.join(intermediate_gdb, "merged_fishnet_points_" + extent_name + "_" + version)
 
-#count_lidar_point_returns_output = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\segmented_heights_above_ground_" + extent_name + "_" + version
-output_csv = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\CSV\merge_fc_" + extent_name + "_" + version + ".csv"
 
-# Output File
+# Output Files
+
+output_csv = csv_folder + os.sep + "merge_fc_" + extent_name + "_" + version + ".csv"
 output_netcdf_voxel = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\NetCDF_Voxel\csv_to_netcdf_voxel_ " + extent_name + "_" + version + ".nc"
 
 start_script = datetime.now()
 print("\nStart Time: " + str(start_script))
 
+arcpy.env.extent = extent_fc
+
 
 def pre_processing():
+
+    if os.path.exists(lidar_file_conversion):
+        print("Deleting " + lidar_file_conversion)
+        os.remove(lidar_file_conversion)
+
+    if os.path.exists(lidar_clip_file):
+        print("Deleting " + lidar_clip_file)
+        os.remove(lidar_clip_file)
+
+    las_file_clip = input_las_file.split(".las")[0] + "_clip" + ".las"
+    if os.path.exists(las_file_clip):
+        print("Deleting " + las_file_clip)
+        os.remove(las_file_clip)
 
     print("Converting LAS file to an ArcGIS compatible LAS dataset file...")
 
@@ -93,7 +105,7 @@ def pre_processing():
     print("Converting LAS file to Multipoints...")
     # The extremely small point spacing parameter forces 1 point for each lidar point.
     arcpy.ddd.LASToMultipoint(
-        input_las_file.split(".las")[0] + "_clip" + ".las",
+        las_file_clip,
         lidar_multipoint,
         1E-07, [], "ANY_RETURNS", None,
         output_proj,
@@ -135,10 +147,12 @@ def pre_processing():
             max_possible_height = row[2]  # Max height = CHM
             height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
-            # Delete LiDAR Point errors (points taller than the CHM)
+            # Delete LiDAR Point errors (points greater than the threshold above the CHM)
             if height_from_ground > max_possible_height + height_error_tolerance:
-                print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(
-                    max_possible_height))
+                print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
+                uc.deleteRow()
+            elif ground_offset and height_from_ground <= ground_offset:
+                print("Deleting point with height = " + str(height_from_ground) + ". Ground offset is " + str(ground_offset))
                 uc.deleteRow()
             else:
                 if height_from_ground < 0:
@@ -147,25 +161,29 @@ def pre_processing():
                 uc.updateRow(row)
 
 
-
 def create_csv():
 
+    # Have to use z values since CHM is canopy height, not elevation of canopy. Large Z values have already been eliminated.
     all_z_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "Z_max")]
-
-    z_min = int(min(all_z_values))
     z_max = int(round(max(all_z_values), 1))
 
-    print("\nMin Height: " + str(z_min))
-    print("Max Height: " + str(z_max))
+    # Use DTM for the min z value instead of min Lidar Z value because of a lidar point that was 479.52m.
+    # This resulted in excessive iterations. Switched max z value to max CHM.
+
+    all_dtm_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "dtm_extraction")]
+    z_min = int(min(all_dtm_values))
+
+    print("\nMin Global Elevation (from DTM): " + str(z_min))
+    print("Max Global Elevation (from CHM): " + str(z_max))
 
     z_start = z_min
-    z_end = z_min + z_interval
+    z_end = z_min + voxel_size
 
+    # Create a fishnet and fishnet points for each z slice containing a count of the point returns.
     tmp_fishnet_points_to_merge = []
-    while z_end <= z_max + 1:
-    #while z_end <= 1209:
-        # Create a netCDF file containing a count of the number of points within this slice
 
+    while z_end <= z_max + 1:
+    #while z_end <= 1209: # For testing
         print("\nStarting Elevation: " + str(z_start))
         print("Ending Elevation: " + str(z_end))
 
@@ -174,7 +192,7 @@ def create_csv():
         tmp_fishnet = os.path.join(tmp_gdb, "fishnet_" + str(z_start) + "_" + str(z_end))
         desc = arcpy.Describe(output_dtm)
         arcpy.CreateFishnet_management(tmp_fishnet, str(desc.extent.lowerLeft),
-                                       str(desc.extent.XMin) + " " + str(desc.extent.YMax), "1", "1", None, None,
+                                       str(desc.extent.XMin) + " " + str(desc.extent.YMax), voxel_size, voxel_size, None, None,
                                        str(desc.extent.upperRight), "NO_LABELS", "#", "POLYGON")
 
         arcpy.AddField_management(tmp_fishnet, "Z", "DOUBLE")
@@ -214,7 +232,7 @@ def create_csv():
         z_start += 1
         z_end += 1
 
-    print("Merging Fishnet Points...")
+    print("\nMerging Fishnet Points...")
     arcpy.Merge_management(tmp_fishnet_points_to_merge, merged_fishnet_points)
     arcpy.AddField_management(merged_fishnet_points, "Time", "Short")
     arcpy.CalculateField_management(merged_fishnet_points, "Time", 1)
@@ -286,7 +304,7 @@ def create_voxel():
 
     #Assign variable attributes
 
-    ncData.long_name = "My test data"
+    ncData.long_name = "LiDAR Point Return Count"
 
     ncZ.positive = 'up'
 
@@ -303,7 +321,7 @@ def create_voxel():
 
     outDataSet.close()
 
-#pre_processing()
+pre_processing()
 create_csv()
 create_voxel()
 
