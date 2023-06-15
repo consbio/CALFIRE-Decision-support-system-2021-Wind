@@ -11,12 +11,18 @@
 import os
 import arcpy
 from datetime import datetime
+import time
+import pytz
+import dateutil.parser
 arcpy.env.overwriteOutput = True
+from netCDF4 import Dataset
+import numpy as np
+import pandas as pd
 
 # Input Parameters
 
-version = "v3_chm_offset_10"
-extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+version = "v2_test_time"
+extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_2_tower_location_small"
 extent_name = extent_fc.split(os.sep)[-1]
 
 voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
@@ -28,6 +34,7 @@ output_proj = 'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS
 NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_298000_4100000_classified_point_cloud_colorized.laz"
 NEON_DTM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_DTM.tif"
 NEON_CHM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Ecosystem_structure\2019\06\NEON_struct-ecosystem\NEON.D17.SOAP.DP3.30015.001.2019-06.basic.20230524T172838Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_CHM.tif"
+
 
 tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch\Scratch.gdb"
 tmp_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch"
@@ -66,8 +73,23 @@ output_netcdf_voxel = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks
 start_script = datetime.now()
 print("\nStart Time: " + str(start_script))
 
-arcpy.env.extent = extent_fc
+las_file_parse_date = datetime.strptime(NEON_lidar_laz_file.split("NEON.")[-1].split(".")[5] + '+0000', "%Y-%m%z") # Specify Time Zone as GMT
 
+print("\nLiDAR File Datetime: " + str(las_file_parse_date))
+
+# POSIX timestamp as float
+#las_file_date = dateutil.parser.parse(las_file_parse_date).timestamp()
+#las_file_date = dateutil.parser.parse(las_file_parse_date).toordinal()
+
+# String time
+#las_file_date = las_file_parse_date.strftime("%Y-%m-%d %H:%M:%S")
+
+# epoch time
+las_file_date = las_file_parse_date.timestamp()
+
+print("LiDAR File Epoch Time: " + str(las_file_date))
+
+arcpy.env.extent = extent_fc
 
 def pre_processing():
     """
@@ -75,6 +97,8 @@ def pre_processing():
     point feature class containing LiDAR points between the user defined starting height and the CHM offset, and a field
     for the Z value, CHM, and DTM.
     """
+
+    print("\nPreprocessing\n")
 
     if os.path.exists(lidar_file_conversion):
         print("Deleting " + lidar_file_conversion)
@@ -89,7 +113,7 @@ def pre_processing():
         print("Deleting " + las_file_clip)
         os.remove(las_file_clip)
 
-    print("Converting LAS file to an ArcGIS compatible LAS dataset file...")
+    print("\nConverting LAS file to an ArcGIS compatible LAS dataset file...")
 
     arcpy.conversion.ConvertLas(
         NEON_lidar_laz_file,
@@ -146,9 +170,9 @@ def pre_processing():
     arcpy.sa.ExtractValuesToPoints(lidar_points_with_dtm_extraction, NEON_CHM, lidar_points_with_z_dtm_and_chm, "", "VALUE_ONLY")
     arcpy.AlterField_management(lidar_points_with_z_dtm_and_chm, "RASTERVALU", "chm_extraction", "chm_extraction")
 
-    print("Calculating height of each point from ground (DTM)")
+    print("\nCalculating height of each point from ground (DTM).")
     print("Points less than " + str(starting_height) + " meter from the ground will be dropped.")
-    arcpy.AddField_management(lidar_points_with_z_dtm_and_chm, "height_from_ground", "DOUBLE")
+    arcpy.AddField_management(lidar_points_with_z_dtm_and_chm, "height_from_ground", "LONG")
 
     with arcpy.da.UpdateCursor(lidar_points_with_z_dtm_and_chm, ["Z_max", "dtm_extraction", "chm_extraction", "height_from_ground"]) as uc:
         for row in uc:
@@ -158,7 +182,7 @@ def pre_processing():
             # Delete LiDAR Point errors (points greater than the threshold above the CHM)
             if height_from_ground > chm + max_chm_offset:
                 offset = height_from_ground - chm
-                print("Deleting point with height = " + str(height_from_ground) + ". CHM is " + str(chm) + "This point is " + str(offset) + " above the CHM. Max CHM offset is " + str(max_chm_offset))
+                print("Deleting point with height = " + str(height_from_ground) + ". CHM is " + str(chm) + ". This point is " + str(offset) + " above the CHM. Max CHM offset is " + str(max_chm_offset))
                 uc.deleteRow()
             elif starting_height and height_from_ground <= starting_height:
                 # Too many print statements
@@ -180,6 +204,7 @@ def create_csv():
     For example a z_min of 1000 would mean that the first layer of voxels would be at an elevation of 1000m,
     and a z_max of 2000 would mean that the last f voxels would be at an elevation of 2000m.
     """
+    print("\nCreating CSV\n")
 
     # Set the max elevation slice to be used in the "cube".
     all_z_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "Z_max")]
@@ -191,9 +216,9 @@ def create_csv():
     all_dtm_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "dtm_extraction")]
     z_min = int(min(all_dtm_values))
 
-    print("\nMin Global Elevation (from DTM): " + str(z_min))
+    print("Min Global Elevation (from DTM): " + str(z_min))
     print("Max Global Elevation (from LiDAR Z values after errors removed): " + str(z_max))
-    print("\nThese values are used to determine the starting and ending elevation 'slices'.")
+    print("These values are used to determine the starting and ending elevation 'slices'.")
 
     z_start = z_min
     z_end = z_min + voxel_size
@@ -201,9 +226,11 @@ def create_csv():
     # Create a fishnet and fishnet points for each z slice containing a count of the point returns.
     tmp_fishnet_points_to_merge = []
 
-    #while z_end <= 1209: # For testing
-    while z_end <= z_max + 1:
-        print("\nStarting Elevation: " + str(z_start))
+    count = 1
+    while z_end <= 1210:  # For testing
+    #while z_end <= z_max + 1:
+        print("\nElevation Slice: " + str(count) + "/" + str(z_max - z_min))
+        print("Starting Elevation: " + str(z_start))
         print("Ending Elevation: " + str(z_end))
 
         print("Creating Fishnet for this elevation slice...")
@@ -249,13 +276,16 @@ def create_csv():
 
         z_start += 1
         z_end += 1
+        count += 1
 
     print("\nMerging Fishnet Points...")
     arcpy.Merge_management(tmp_fishnet_points_to_merge, merged_fishnet_points)
-    arcpy.AddField_management(merged_fishnet_points, "Time", "Short")
-    arcpy.CalculateField_management(merged_fishnet_points, "Time", 1)
+    arcpy.AddField_management(merged_fishnet_points, "Time", "LONG")
+    arcpy.CalculateField_management(merged_fishnet_points, "Time", las_file_date)
+    #arcpy.AddField_management(merged_fishnet_points, "Time", "TEXT")
+    #arcpy.CalculateField_management(merged_fishnet_points, "Time", "'" + las_file_date + "'")
 
-    print("Exporting to CSV...")
+    print("Exporting to CSV...\n")
     output_csv_dir = os.path.dirname(output_csv)
     output_csv_name = os.path.basename(output_csv)
     arcpy.TableToTable_conversion(merged_fishnet_points, output_csv_dir, output_csv_name)
@@ -267,9 +297,7 @@ def create_voxel():
     layer from a CSV file" code available on the ESRI website:
     https://pro.arcgis.com/en/pro-app/latest/help/mapping/layer-properties/create-a-voxel-layer.htm """
 
-    from netCDF4 import Dataset
-    import numpy as np
-    import pandas as pd
+    print("\nCreating Voxel\n")
 
     #Create a pandas dataframe and insert data from CSV/TEXT file
     dfPoints = pd.read_csv(output_csv)
@@ -282,12 +310,16 @@ def create_voxel():
     #Create domain for longitude/latitude
     #Each domain has unique values, no repeating numbers, and are sorted (to be monotonic)
     xDomain = np.sort(np.unique(dfPoints.iloc[:,10].values)) # 0th column contains x values
+    print("X Domain Values:")
     print(xDomain)
     yDomain = np.sort(np.unique(dfPoints.iloc[:,11].values)) # 1st column contains y values
+    print("Y Domain Values:")
     print(yDomain)
     zDomain = np.sort(np.unique(dfPoints.iloc[:,3].values)) # 2nd column contains z values
+    print("Z Domain Values:")
     print(zDomain)
     tDomain = np.sort(np.unique(dfPoints.iloc[:,12].values)) # 3rd column contains t values
+    print("T Domain Values:")
     print(tDomain)
 
     #Create NetCDF file
@@ -301,8 +333,11 @@ def create_voxel():
     ncX = outDataSet.createVariable('x', np.float32, 'x') # Create variable x
     ncY = outDataSet.createVariable('y', np.float32, 'y') # Create variable y
     ncZ = outDataSet.createVariable('z', np.float32, 'z') # Create variable z
-    ncT = outDataSet.createVariable('t', np.float32, 't') # Create variable t
+    #ncT = outDataSet.createVariable('t', np.float32, 't') # Create variable t
+    ncT = outDataSet.createVariable('t', np.int32, 't') # Create variable t
     #ncT = outDataSet.createVariable('t', np.datetime64, 't') # Create variable t
+    #ncT = outDataSet.createVariable('t', np.str_, 't') # Create variable t
+    #ncT = outDataSet.createVariable('t', np.unicode_, 't') # Create variable t
 
     #Create variable data with dimensions (t,z,y,x). The fill value is set to -99999 which are values to be ignored by client.
     ncData = outDataSet.createVariable('data',np.float32,('t','z','y','x'),fill_value = -99999)
@@ -313,7 +348,7 @@ def create_voxel():
     ncZ[:] = zDomain[:]
     ncT[:] = tDomain[:]
 
-    test = np.arange(900)
+    #test = np.arange(900)
     #should be 900 points
     #The dataframe 'Data' column must be reshaped to match the dimension shapes and placed into the ncData variable
     ncData[:,:,:,:]  = np.reshape(
@@ -334,7 +369,7 @@ def create_voxel():
     ncY.standard_name = 'projection_y_coordinate'
     ncY.units = 'm'
 
-    #ncT.units = 'hours since 2000-01-01 00:00:00'
+    ncT.units = 'seconds since 1970-01-01 00:00:00'
 
     #Assign global attribute. This attribute is to assign a coordinate system.
     outDataSet.esri_pe_string = 'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]',
