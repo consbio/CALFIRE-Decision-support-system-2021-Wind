@@ -19,7 +19,7 @@ extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data
 extent_name = extent_fc.split(os.sep)[-1]
 
 voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
-max_chm_offset = 5  # Max Canopy Height Offset allowed. LiDAR point returns greater than this value above the CHM will be considered errors and will be deleted (units are m).
+max_chm_offset = 10  # Max Canopy Height Offset allowed. LiDAR point returns greater than this value above the CHM will be considered errors and will be deleted (units are m).
 starting_height = 1  # Used to remove ground points. Any points less than this value from the ground will not be included (units are m)
 
 output_proj = 'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]'
@@ -332,5 +332,4 @@ create_voxel()
 end_script = datetime.now()
 print("\nEnd Time: " + str(end_script))
 print("Duration: " + str(end_script - start_script))
-
 
