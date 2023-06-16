@@ -18,8 +18,10 @@ import pandas as pd
 
 # Input Parameters
 
-version = "v3_chm_offset_10"
-extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+version = "v1"
+#extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000"
+
 extent_name = extent_fc.split(os.sep)[-1]
 
 voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
@@ -104,7 +106,7 @@ def pre_processing():
         print("Deleting " + las_file_clip)
         os.remove(las_file_clip)
 
-    print("\nConverting LAS file to an ArcGIS compatible LAS dataset file...")
+    print("Converting LAS file to an ArcGIS compatible LAS dataset file...")
 
     arcpy.conversion.ConvertLas(
         NEON_lidar_laz_file,
