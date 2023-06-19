@@ -25,7 +25,7 @@ extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data
 
 extent_name = extent_fc.split(os.sep)[-1]
 
-voxel_size = 1  # Used to define the x,y, and y dimensions of the voxel (units are m).
+voxel_size = 1  # Used to define the x, y, and z dimensions of the voxel (units are m).
 max_chm_offset = 10  # Max Canopy Height Offset allowed. LiDAR point returns greater than this distance above the CHM will be considered errors and will be deleted (units are m).
 starting_height = 1  # Used to remove ground points. Any points less than this distance from the ground will not be included (units are m).
 
