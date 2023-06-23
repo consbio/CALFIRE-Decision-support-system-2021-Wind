@@ -372,8 +372,8 @@ def create_voxel():
 
     outDataSet.close()
 
-pre_processing()
-create_csv()
+#pre_processing()
+#create_csv()
 create_voxel()
 
 end_script = datetime.now()
