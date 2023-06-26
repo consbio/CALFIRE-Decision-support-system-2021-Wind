@@ -15,29 +15,39 @@ from datetime import datetime
 
 arcpy.env.overwriteOutput = True
 
-extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\Extent_1_Tower_Location"
+version = "v1_10m_CFO_snap"
+
+#extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location_utm_zone_10n"
 extent_name = extent_fc.split(os.sep)[-1]
 
-fishnet_input_points_extent = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Volume\Vector_Fishnets.gdb\Fishnet_LiDAR_Point_" + extent_name
+fishnet_input_points_extent = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Volume\Vector_Fishnets.gdb\fishnet_lidar_point_" + extent_name
 
-input_points_with_z_and_height_from_ground = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb\Lidar_Points_with_Elevation_" + extent_name
+input_points_with_z_and_height_from_ground = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb\lidar_points_with_elevation_" + extent_name
 
 NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_298000_4100000_classified_point_cloud_colorized.laz"
 NEON_DTM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_DTM.tif"
 NEON_CHM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Ecosystem_structure\2019\06\NEON_struct-ecosystem\NEON.D17.SOAP.DP3.30015.001.2019-06.basic.20230524T172838Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_CHM.tif"
+snap_grid = r"\\loxodonta\gis\Projects\CALFIRE_Decision_support_system_2021\Workspaces\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\CFO_Data_Processing\Data\Outputs\CFO_Green_Vegetation_By_County_Spring_2020\Fresno-County-California-Vegetation-GreenVegetation-2020-Spring-00010m.tif"
 
 tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch\Scratch.gdb"
 intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb"
 intermediate_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume"
-output_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\segmented_heights_above_ground_" + extent_name
+output_fc = "_".join([r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\segmented_heights_above_ground", extent_name, version])
 
 height_interval = 1
+output_resolution = 10
 
 start_script = datetime.now()
 print("\nStart Time: " + str(start_script))
 
-arcpy.env.extent = extent_fc
+output_proj = arcpy.Describe(extent_fc).spatialReference
 
+arcpy.env.extent = extent_fc
+arcpy.env.outputCoordinateSystem = output_proj
+
+print(fishnet_input_points_extent)
+print(output_fc)
 
 def pre_processing():
 
@@ -53,16 +63,17 @@ def pre_processing():
         lidar_file_conversion,
         "NO_FILES", None)
 
-    print("Extracting LAS file to study area...")
+    print("Extracting LAS file to study area (and projecting LAS)...")
     lidar_clip_file = lidar_folder + os.sep + lidar_file_conversion_name.split(".")[0] + "_Clip" + ".lasd"
-    arcpy.ddd.ExtractLas(
-        lidar_file_conversion,
-        lidar_folder,
-        "",
-        extent_fc, "PROCESS_EXTENT", '', "MAINTAIN_VLR", "REARRANGE_POINTS",
-        "COMPUTE_STATS",
-        lidar_clip_file,
-        "SAME_AS_INPUT")
+    with arcpy.EnvManager(outputCoordinateSystem=output_proj):
+        arcpy.ddd.ExtractLas(
+            lidar_file_conversion,
+            lidar_folder,
+            "",
+            extent_fc, "PROCESS_EXTENT", '', "MAINTAIN_VLR", "REARRANGE_POINTS",
+            "COMPUTE_STATS",
+            lidar_clip_file,
+            "SAME_AS_INPUT")
 
     print("Converting LAS file to Multipoints...")
     input_las_file = lidar_folder + os.sep + NEON_lidar_laz_file.split(os.sep)[-1].replace(".laz", ".las")
@@ -71,7 +82,9 @@ def pre_processing():
         input_las_file,
         lidar_multipoint,
         1E-07, [], "ANY_RETURNS", None,
-        'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]',
+        #'PROJCS["WGS_1984_UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]],VERTCS["unknown",VDATUM["unknown"],PARAMETER["Vertical_Shift",0.0],PARAMETER["Direction",1.0],UNIT["Meter",1.0]]',
+        #output_proj,
+        "",
         "las", 1, "NO_RECURSION")
 
     print("Adding Z value to Multipoints...")
@@ -80,6 +93,11 @@ def pre_processing():
     print("Converting Multipoint to points...")  # Needed to extract by mask
     lidar_multipoint_to_points = intermediate_gdb + os.sep + "lidar_multipoint_to_points"
     arcpy.management.FeatureToPoint(lidar_multipoint, lidar_multipoint_to_points, "CENTROID")
+
+    print("Extracting SNAP Grid to Study Area...")
+    output_snap_grid = intermediate_gdb + os.sep + "SNAP_GRID_Clipped_" + extent_fc.split(os.sep)[-1]
+    out_raster_snap_grid = arcpy.sa.ExtractByMask(snap_grid, extent_fc, "INSIDE")
+    out_raster_snap_grid.save(output_snap_grid)
 
     print("Extracting DTM to Study Area...")
     output_dtm = intermediate_gdb + os.sep + "NEON_DTM_Clipped_" + extent_fc.split(os.sep)[-1]
@@ -104,11 +122,13 @@ def pre_processing():
 
 
     print("Creating Fishnet...")
-    desc = arcpy.Describe(output_dtm)
+    #desc = arcpy.Describe(output_dtm)
+    desc = arcpy.Describe(output_snap_grid)
     arcpy.CreateFishnet_management(fishnet_input_points_extent, str(desc.extent.lowerLeft),
-                                   str(desc.extent.XMin) + " " + str(desc.extent.YMax), "1", "1", None, None,
+                                   str(desc.extent.XMin) + " " + str(desc.extent.YMax), output_resolution, output_resolution, None, None,
                                    str(desc.extent.upperRight), "NO_LABELS", "#", "POLYGON")
 
+    arcpy.management.DefineProjection(fishnet_input_points_extent, output_proj)
 
 def count_point_returns():
 
@@ -192,9 +212,9 @@ def post_processing():
     arcpy.JoinField_management(output_fc,"GRID_ID",tmp_points_with_dtm, "GRID_ID", ["RASTERVALU"])
     arcpy.AlterField_management(output_fc, "RASTERVALU", "DTM_Extraction", "DTM_Extraction")
 
-pre_processing()
+#pre_processing()
 count_point_returns()
-post_processing()
+#post_processing()
 
 end_script = datetime.now()
 print("\nEnd Time: " + str(end_script))
