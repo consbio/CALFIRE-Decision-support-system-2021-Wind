@@ -15,20 +15,25 @@ from datetime import datetime
 
 arcpy.env.overwriteOutput = True
 
-version = "v3_test_ground_returns"
+version = "v1_10m_z11n"
+version = "v2_10m_z10n"
+
 height_interval = 1
-output_resolution = 1
-max_chm_offset = 10  # Max Canopy Height Offset allowed. LiDAR point returns greater than this distance above the CHM will be considered errors and will be deleted (units are m).
+output_resolution = 10
+max_chm_offset = 30  # Max Canopy Height Offset allowed. LiDAR point returns greater than this distance above the CHM will be considered errors and will be deleted (units are m).
 
 
-extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+#extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
 #extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location_utm_zone_10n"
+#extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000_utm_zone_10n"
+extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000"
 extent_name = extent_fc.split(os.sep)[-1]
 
 
 NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_298000_4100000_classified_point_cloud_colorized.laz"
 NEON_DTM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_DTM.tif"
 NEON_CHM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Ecosystem_structure\2019\06\NEON_struct-ecosystem\NEON.D17.SOAP.DP3.30015.001.2019-06.basic.20230524T172838Z.RELEASE-2023\NEON_D17_SOAP_DP3_298000_4100000_CHM.tif"
+solar_insolation_index = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Source\Solar_Insolation\data\commondata\data0\insol_ind"
 snap_grid = r"\\loxodonta\gis\Projects\CALFIRE_Decision_support_system_2021\Workspaces\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\CFO_Data_Processing\Data\Outputs\CFO_Green_Vegetation_By_County_Spring_2020\Fresno-County-California-Vegetation-GreenVegetation-2020-Spring-00010m.tif"
 
 tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch\Scratch.gdb"
@@ -55,6 +60,11 @@ lidar_points_with_z_dtm_and_chm = os.path.join(intermediate_gdb, "lidar_points_w
 lidar_points_with_z_dtm_and_chm = os.path.join(intermediate_gdb, "lidar_points_with_elevation_" + extent_name + "_" + version)
 fishnet_input_points_extent = os.path.join(intermediate_gdb, "fishnet_lidar_point_" + extent_name + "_" + version)
 
+tmp_points = os.path.join(tmp_gdb, "tmp_points")
+tmp_points_with_dtm = os.path.join(tmp_gdb, "tmp_points_with_dtm")
+tmp_points_with_dtm_and_chm = os.path.join(tmp_gdb, "tmp_points_with_dtm_and_chm")
+tmp_points_with_dtm_chm_and_insolation = os.path.join(tmp_gdb, "tmp_points_with_dtm_chm_and_insolation")
+
 # Output Feature Class
 
 output_fc = "_".join([r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\segmented_heights_above_ground", extent_name, version])
@@ -67,8 +77,6 @@ output_proj = arcpy.Describe(extent_fc).spatialReference
 arcpy.env.extent = extent_fc
 arcpy.env.outputCoordinateSystem = output_proj
 
-print(fishnet_input_points_extent)
-print(output_fc)
 
 def pre_processing():
 
@@ -99,7 +107,6 @@ def pre_processing():
         "NO_FILES", None)
 
     print("Extracting LAS file to study area (and projecting LAS)...")
-    lidar_clip_file = lidar_folder + os.sep + lidar_file_conversion_name.split(".")[0] + "_Clip" + ".lasd"
     with arcpy.EnvManager(outputCoordinateSystem=output_proj):
         arcpy.ddd.ExtractLas(
             lidar_file_conversion,
@@ -156,31 +163,35 @@ def pre_processing():
 
     arcpy.management.DefineProjection(fishnet_input_points_extent, output_proj)
 
+
 def count_point_returns():
 
-    arcpy.CopyFeatures_management(fishnet_input_points_extent, output_fc)
+    print("\nCounting Point Returns\n")
 
-    #lidar_points_with_z_dtm_and_chm = intermediate_gdb + os.sep + "NEON_D17_SOAP_Las_to_Multipoint_Subset_Small_Subset_to_Point_Extract_DTM"
-    #arcpy.sa.ExtractValuesToPoints(input_points_with_z, dtm, lidar_points_with_z_dtm_and_chm, "NONE", "VALUE_ONLY")
+    arcpy.CopyFeatures_management(fishnet_input_points_extent, output_fc)
 
     arcpy.AddField_management(lidar_points_with_z_dtm_and_chm, "height_from_ground", "DOUBLE")
 
     print("Calculating height of each point from ground (DTM)")
     with arcpy.da.UpdateCursor(lidar_points_with_z_dtm_and_chm, ["Z_max", "dtm_extraction", "chm_extraction", "height_from_ground",]) as uc:
         for row in uc:
-            max_possible_height = row[2]  # Max height = CHM
-            height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
+            if row[1]:
+                max_possible_height = row[2]  # Max height = CHM
+                height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
-            # Delete LiDAR Point errors (points taller than the CHM)
-            # This is causing problems. Ground points are being deleted because they are above the CHM which is 0.
-            if height_from_ground > max_possible_height + max_chm_offset:
-                print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
-                uc.deleteRow()
+                # Delete LiDAR Point errors (points taller than the CHM)
+                # This is causing problems. Ground points are being deleted because they are above the CHM which is 0.
+                if height_from_ground > max_possible_height + max_chm_offset:
+                    print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
+                    uc.deleteRow()
+                else:
+                    if height_from_ground < 0:
+                        height_from_ground = 0
+                    row[3] = height_from_ground
+                    uc.updateRow(row)
             else:
-                if height_from_ground < 0:
-                    height_from_ground = 0
-                row[3] = height_from_ground
-                uc.updateRow(row)
+                print("Deleting point without a DTM value")
+                uc.deleteRow()
 
     all_h_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points_with_z_dtm_and_chm, "height_from_ground")]
 
@@ -227,17 +238,28 @@ def count_point_returns():
 
 
 def post_processing():
+    print("\nPost Processing\n")
+
     print("Adding GRID ID to final output...")
-    tmp_points = os.path.join(tmp_gdb, "tmp_points")
-    tmp_points_with_dtm = os.path.join(tmp_gdb, "tmp_points_with_dtm")
     arcpy.AddField_management(output_fc, "GRID_ID", "LONG")
     arcpy.CalculateField_management(output_fc, "GRID_ID", "!OBJECTID!")
 
-    print("Adding DTM to final output...")
     arcpy.FeatureToPoint_management(output_fc, tmp_points)
+
+    print("Adding DTM to final output...")
     arcpy.sa.ExtractValuesToPoints(tmp_points, NEON_DTM, tmp_points_with_dtm)
-    arcpy.JoinField_management(output_fc,"GRID_ID",tmp_points_with_dtm, "GRID_ID", ["RASTERVALU"])
-    arcpy.AlterField_management(output_fc, "RASTERVALU", "DTM_Extraction", "DTM_Extraction")
+    arcpy.AlterField_management(tmp_points_with_dtm, "RASTERVALU", "DTM_Extraction", "DTM_Extraction")
+
+    print("Adding CHM to final output...")
+    arcpy.sa.ExtractValuesToPoints(tmp_points_with_dtm, NEON_CHM, tmp_points_with_dtm_and_chm)
+    arcpy.AlterField_management(tmp_points_with_dtm_and_chm, "RASTERVALU", "CHM_Extraction", "CHM_Extraction")
+
+    print("Extracting Solar Insolation...")
+    arcpy.sa.ExtractValuesToPoints(tmp_points_with_dtm_and_chm, solar_insolation_index, tmp_points_with_dtm_chm_and_insolation)
+    arcpy.AlterField_management(tmp_points_with_dtm_chm_and_insolation, "RASTERVALU", "Insolation_Extraction", "Insolation_Extraction")
+
+    arcpy.JoinField_management(output_fc,"GRID_ID",tmp_points_with_dtm_and_chm_and_insolation, "GRID_ID", ["DTM_Extraction", "CHM_Extraction", "Insolation_Extraction"])
+
 
 pre_processing()
 count_point_returns()
