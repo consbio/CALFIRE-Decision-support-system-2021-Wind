@@ -146,8 +146,8 @@ def pre_processing():
 
     print("\nConverting LAS file to an ArcGIS compatible LAS dataset file...")
 
-    #Note that the LAS file processing all happens in the CRS native to the NEON data.
-    # This is desired for accuracy. Don't want to project the DTM, CHM, LiDAR. Extract in native CRS.
+    # Note that the LiDAR point processing all happens in the CRS native to the LiDAR and other NEON data.
+    # This is desired for accuracy. Don't want to project the DTM, CHM, LiDAR. Extract in native CRS, then project.
 
     if os.path.exists(lidar_file_conversion):
         print("Deleting " + lidar_file_conversion)
