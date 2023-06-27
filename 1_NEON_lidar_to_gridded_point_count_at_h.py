@@ -124,24 +124,24 @@ def pre_processing():
 
     arcpy.env.snapRaster = snap_grid
 
-    print("\nConverting Extent Feature Class to Extent Raster (Snapped to Snap Raster)...")
+    print("Converting to extent_fc_raster and snapping to snap_grid...")
     with arcpy.EnvManager(snapRaster=snap_grid):
         arcpy.conversion.PolygonToRaster(extent_fc, "OBJECTID", extent_raster, "CELL_CENTER", "NONE", output_resolution, "BUILD")
 
-    print("Creating Fishnet from Extent Raster...")
+    print("Creating Fishnet from extent_fc_raster...")
     desc = arcpy.Describe(extent_raster)
     arcpy.CreateFishnet_management(fishnet_input_points_extent, str(desc.extent.lowerLeft),
                                    str(desc.extent.XMin) + " " + str(desc.extent.YMax), output_resolution, output_resolution, None, None,
                                    str(desc.extent.upperRight), "NO_LABELS", "#", "POLYGON")
 
-    print("Removing Fishnet polys outside of the Extent Raster...")
+    print("Removing Fishnet polys outside of extent_fc...")
     fishnet_input_points_extent_layer = arcpy.MakeFeatureLayer_management(fishnet_input_points_extent)
     arcpy.SelectLayerByLocation_management(fishnet_input_points_extent_layer, "WITHIN", extent_fc, None, "NEW_SELECTION", "INVERT")
     arcpy.DeleteRows_management(fishnet_input_points_extent_layer)
 
     arcpy.management.DefineProjection(fishnet_input_points_extent, output_crs)
 
-    print("Copying Fishnet to output Feature Class...")
+    print("Copying Fishnet to output feature class...")
     arcpy.CopyFeatures_management(fishnet_input_points_extent, output_fc)
 
     print("\nConverting LAS file to an ArcGIS compatible LAS dataset file...")
@@ -171,7 +171,7 @@ def pre_processing():
         lidar_file_conversion,
         "NO_FILES", None)
 
-    print("Extracting LAS file to study area (and projecting LAS)...")
+    print("Extracting LAS file to fishnet boundary...")
     arcpy.ddd.ExtractLas(
         lidar_file_conversion,
         lidar_folder,
@@ -276,19 +276,19 @@ def count_point_returns():
         lidar_points_layer = arcpy.MakeFeatureLayer_management(lidar_points)
         arcpy.management.SelectLayerByAttribute(lidar_points_layer, "NEW_SELECTION", expression, None)
 
-        print("Performing spatial join to get a count of the number LiDAR point returns within this height segment for each polygon...")
+        print("Performing spatial join to get a count of the number LiDAR point returns within this height interval for each polygon...")
         output_spatial_join_fc = tmp_gdb + os.sep + "spatial_join_" + str(h_start).replace('-', "neg") + "_" + str(h_end).replace("-", "neg")
         arcpy.analysis.SpatialJoin(output_fc, lidar_points_layer, output_spatial_join_fc, "JOIN_ONE_TO_ONE", "KEEP_ALL", '' "CONTAINS", None, '')
 
-        print("Creating a dictionary to store the return count for each OBJECTID (OBJECTID[point_count])")
+        print("Creating a dictionary to store the point return count for each OBJECTID (OBJECTID[point_count])")
         count_dict = {}
 
         with arcpy.da.SearchCursor(output_spatial_join_fc, ["TARGET_FID", "Join_Count"]) as sc:
             for row in sc:
                 count_dict[row[0]] = row[1]
 
-        print("Adding point count for this height segment to the output Feature Class...\n")
         field_name = "count_" + str(h_start).replace("-", "neg") + "m_" + str(h_end).replace("-", "neg") + "m"
+        print("Adding the point count to the following field in the output feature class: " + field_name + "\n")
         arcpy.AddField_management(output_fc, field_name, "LONG")
         with arcpy.da.UpdateCursor(output_fc, ["OBJECTID", field_name]) as uc:
             for row in uc:
