@@ -8,6 +8,8 @@
 # The output is a fishnet (vector based grid) with a field containing a point count for each interval
 # For example, the field count_0m_1m stores the number of point returns recorded between 0m and 1m from the ground for
 # each polygon grid.
+#
+# Duration ~ 1.5 hours for a NEON Tile.
 ########################################################################################################################
 import arcpy
 import os
@@ -22,6 +24,8 @@ version = "v3_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishn
 version = "v01_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishnet where there is no data.
 version = "v4_z10n"  # Full extent of the SOAP Tile containing the Tower.
 version = "v5_z10n"  # Project input_points to match the CRS of the CFO data prior to spatial joins.
+version = "v01_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishnet where there is no data.
+version = "v6"  # First Deliverable (Handle negative elevations with a dedicated field (count_lt_0m))
 
 height_interval = 1
 output_resolution = 10
@@ -64,7 +68,7 @@ extent_raster = os.path.join(intermediate_folder, "Extent_Rasters", "extent_rast
 output_dtm = os.path.join(intermediate_gdb, "neon_dtm_clipped_" + extent_name + "_" + version)
 output_chm = os.path.join(intermediate_gdb, "neon_chm_clipped_" + extent_name + "_" + version)
 output_snap_grid = os.path.join(intermediate_gdb, "SNAP_GRID_clipped_" + extent_name + "_" + version)
-fishnet_input_points_extent = os.path.join(intermediate_gdb, "fishnet_lidar_point_" + extent_name + "_" + version)
+fishnet = os.path.join(intermediate_gdb, "fishnet_lidar_point_" + extent_name + "_" + version)
 
 tmp_points = os.path.join(tmp_gdb, "tmp_points")
 tmp_points_with_dtm = os.path.join(tmp_gdb, "tmp_points_with_dtm")
@@ -76,7 +80,9 @@ print("\nLiDAR File Datetime: " + str(las_file_parse_date))
 las_file_date = las_file_parse_date.strftime("%Y%m%d")
 
 # Output Feature Class
-output_fc = "_".join([r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\lidar_gridded_point_counts_", extent_name, las_file_date, version])
+output_fc = "_".join([r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\lidar_gridded_point_counts", extent_name, las_file_date, version])
+output_csv_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV"
+output_csv_name = output_fc.split(os.sep)[-1] + ".csv"
 
 ########################################################################################################################
 
@@ -86,28 +92,26 @@ print("\nStart Time: " + str(start_script))
 arcpy.env.extent = extent_fc
 arcpy.env.snapRaster = snap_grid
 
+extent_crs = arcpy.Describe(extent_fc).SpatialReference
 output_crs = arcpy.Describe(snap_grid).spatialReference
-arcpy.env.outputCoordinateSystem = output_crs
+
+#arcpy.env.outputCoordinateSystem = output_crs
 
 
-def pre_processing():
+def create_fishnet():
     """
-    This function creates a fishnet (from a raster version of the input extent snapped to the snap raster) and converts
-    the LiDAR Las file to a point feature class containing the LiDAR Z value, DTM, and CHM extractions.
-    Only points between the user defined starting height and the CHM + CHM offset variable will be included.
-    Points below the DTM will be reassigned to height above ground = 0.
+    This function creates a fishnet from a raster version of the input extent snapped to the snap raster.
     """
 
-    print("\nPreprocessing\n")
+    print("\nCreating Fishnet\n")
 
-    global extent_fc, lidar_points
-
-    extent_crs = arcpy.Describe(extent_fc).SpatialReference
+    global extent_fc
 
     if extent_crs != output_crs:
         print("Projecting extent_fc to match CRS of snap_grid...")
-        datum = extent_crs.gcs.name
-        if datum == "GCS_North_American_1983":
+        datum_extent_crs = extent_crs.gcs.name
+        datum_output_crs = output_crs.gcs.name
+        if datum_extent_crs != datum_output_crs:
             datum_transformation = "WGS_1984_(ITRF00)_To_NAD_1983"
         else:
             datum_transformation = ""
@@ -122,29 +126,46 @@ def pre_processing():
 
         extent_fc = extent_fc_proj
 
-    arcpy.env.snapRaster = snap_grid
+    #arcpy.env.snapRaster = snap_grid
 
-    print("Converting to extent_fc_raster and snapping to snap_grid...")
+    print("Converting extent_fc to raster and snapping to snap_grid...")
     with arcpy.EnvManager(snapRaster=snap_grid):
         arcpy.conversion.PolygonToRaster(extent_fc, "OBJECTID", extent_raster, "CELL_CENTER", "NONE", output_resolution, "BUILD")
 
     print("Creating Fishnet from extent_fc_raster...")
     desc = arcpy.Describe(extent_raster)
-    arcpy.CreateFishnet_management(fishnet_input_points_extent, str(desc.extent.lowerLeft),
+    arcpy.CreateFishnet_management(fishnet, str(desc.extent.lowerLeft),
                                    str(desc.extent.XMin) + " " + str(desc.extent.YMax), output_resolution, output_resolution, None, None,
                                    str(desc.extent.upperRight), "NO_LABELS", "#", "POLYGON")
 
-    print("Removing Fishnet polys outside of extent_fc...")
-    fishnet_input_points_extent_layer = arcpy.MakeFeatureLayer_management(fishnet_input_points_extent)
-    arcpy.SelectLayerByLocation_management(fishnet_input_points_extent_layer, "WITHIN", extent_fc, None, "NEW_SELECTION", "INVERT")
-    arcpy.DeleteRows_management(fishnet_input_points_extent_layer)
+    arcpy.management.DefineProjection(fishnet, output_crs)
 
-    arcpy.management.DefineProjection(fishnet_input_points_extent, output_crs)
+    print("Removing Fishnet polys outside of extent_fc...")
+    fishnet_layer = arcpy.MakeFeatureLayer_management(fishnet)
+    arcpy.SelectLayerByLocation_management(fishnet_layer, "WITHIN", extent_fc, None, "NEW_SELECTION", "INVERT")
+    arcpy.DeleteRows_management(fishnet_layer)
 
     print("Copying Fishnet to output feature class...")
-    arcpy.CopyFeatures_management(fishnet_input_points_extent, output_fc)
+    arcpy.CopyFeatures_management(fishnet, output_fc)
 
-    print("\nConverting LAS file to an ArcGIS compatible LAS dataset file...")
+    print("Adding GRID ID to final output...")
+    arcpy.AddField_management(output_fc, "grid_id", "LONG")
+    arcpy.CalculateField_management(output_fc, "grid_id", "!OBJECTID!")
+
+
+def process_lidar_points():
+
+    """
+    This function converts the LiDAR Las file to a point feature class and adds the LiDAR Z value, DTM, and CHM value.
+    Only points between the user defined starting height and the CHM + CHM offset variable will be included.
+    Points below the DTM will be reassigned to height above ground = 0.
+    """
+
+    print("\nProcessing Lidar Points\n")
+
+    global lidar_points
+
+    print("Converting LAS file to an ArcGIS compatible LAS dataset file...")
 
     # Note that the LiDAR point processing all happens in the CRS native to the LiDAR and other NEON data.
     # This is desired for accuracy. Don't want to project the DTM, CHM, LiDAR. Extract in native CRS, then project.
@@ -171,12 +192,11 @@ def pre_processing():
         lidar_file_conversion,
         "NO_FILES", None)
 
-    print("Extracting LAS file to fishnet boundary...")
     arcpy.ddd.ExtractLas(
         lidar_file_conversion,
         lidar_folder,
         "",
-        fishnet_input_points_extent_layer, "PROCESS_EXTENT", '', "MAINTAIN_VLR", "REARRANGE_POINTS",
+        fishnet, "PROCESS_EXTENT", '', "MAINTAIN_VLR", "REARRANGE_POINTS",
         "COMPUTE_STATS",
         lidar_clip_file,
         "SAME_AS_INPUT")
@@ -202,7 +222,7 @@ def pre_processing():
     # Would need to take an average or do zonal statistics during post processing.
     arcpy.sa.ExtractMultiValuesToPoints(lidar_points, [[NEON_DTM, "dtm"], [NEON_CHM, "chm"]], "NONE")
 
-    print("Calculating height of each point from ground (DTM)...")
+    print("Calculating height of each point from ground (Z-Value - DTM)...")
     arcpy.AddField_management(lidar_points, "height_from_ground", "DOUBLE")
     with arcpy.da.UpdateCursor(lidar_points, ["Z_max", "dtm", "chm", "height_from_ground"]) as uc:
         for row in uc:
@@ -216,8 +236,9 @@ def pre_processing():
                     print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
                     uc.deleteRow()
                 else:
+                    # Assign all points below the ground a -1. This avoids having hundreds of negative fields.
                     if height_from_ground < 0:
-                        height_from_ground = 0
+                        height_from_ground = -1
                     row[3] = height_from_ground
                     uc.updateRow(row)
             else:
@@ -229,8 +250,9 @@ def pre_processing():
     lidar_points_crs = arcpy.Describe(lidar_points).spatialReference
     if lidar_points_crs != output_crs:
         print("Projecting lidar points to match CRS of snap_grid...")
-        datum = extent_crs.gcs.name
-        if datum == "GCS_North_American_1983":
+        datum_lidar_points = arcpy.Describe(lidar_points).spatialReference.gcs.name
+        datum_output_crs = output_crs.gcs.name
+        if datum_lidar_points != datum_output_crs:
             datum_transformation = "WGS_1984_(ITRF00)_To_NAD_1983"
         else:
             datum_transformation = ""
@@ -253,7 +275,7 @@ def count_point_returns():
     update cursor.
     """
 
-    print("\nCounting Point Returns\n")
+    print("\nCounting Point Returns within Each Height Interval\n")
 
     all_h_values = [i[0] for i in arcpy.da.SearchCursor(lidar_points, "height_from_ground")]
 
@@ -261,7 +283,7 @@ def count_point_returns():
     h_max = int(round(max(all_h_values), 1))
 
     print("Min Height: " + str(h_min))
-    print("Max Height: " + str(h_max))
+    print("Max Height: " + str(h_max) + "\n")
 
     h_start = h_min
     h_end = h_min + height_interval
@@ -277,7 +299,7 @@ def count_point_returns():
         arcpy.management.SelectLayerByAttribute(lidar_points_layer, "NEW_SELECTION", expression, None)
 
         print("Performing spatial join to get a count of the number LiDAR point returns within this height interval for each polygon...")
-        output_spatial_join_fc = tmp_gdb + os.sep + "spatial_join_" + str(h_start).replace('-', "neg") + "_" + str(h_end).replace("-", "neg")
+        output_spatial_join_fc = tmp_gdb + os.sep + "spatial_join_" + str(h_start).replace('-1', "neg") + "_" + str(h_end).replace("-1", "neg")
         arcpy.analysis.SpatialJoin(output_fc, lidar_points_layer, output_spatial_join_fc, "JOIN_ONE_TO_ONE", "KEEP_ALL", '' "CONTAINS", None, '')
 
         print("Creating a dictionary to store the point return count for each OBJECTID (OBJECTID[point_count])")
@@ -287,8 +309,12 @@ def count_point_returns():
             for row in sc:
                 count_dict[row[0]] = row[1]
 
-        field_name = "count_" + str(h_start).replace("-", "neg") + "m_" + str(h_end).replace("-", "neg") + "m"
-        print("Adding the point count to the following field in the output feature class: " + field_name + "\n")
+        #field_name = "count_" + str(h_start).replace("-1", "neg") + "m_" + str(h_end).replace("-1", "neg") + "m"
+        if h_start == -1:
+            field_name = "count_lt_0m"
+        else:
+            field_name = "count_" + str(h_start) + "m_" + str(h_end) + "m"
+        print("Creating an update cursor to Add the point count to the following field in the output feature class: " + field_name + "\n")
         arcpy.AddField_management(output_fc, field_name, "LONG")
         with arcpy.da.UpdateCursor(output_fc, ["OBJECTID", field_name]) as uc:
             for row in uc:
@@ -321,6 +347,15 @@ def post_processing():
     expression = " + ".join(height_fields)
     arcpy.CalculateField_management(output_fc, new_height_field, expression)
 
+    new_height_field = "count_min_1m"
+    print("Calculating new height field " + new_height_field)
+    height_fields = []
+    height_fields.append("!count_lt_0m!")
+    height_fields.append("!count_0m_1m!")
+    expression = " + ".join(height_fields)
+    arcpy.AddField_management(output_fc, new_height_field, "LONG")
+    arcpy.CalculateField_management(output_fc, new_height_field, expression)
+
     new_height_field = "count_5m_max"
     print("Calculating new height field " + new_height_field)
     height_fields = []
@@ -330,9 +365,6 @@ def post_processing():
     arcpy.AddField_management(output_fc, new_height_field, "LONG")
     arcpy.CalculateField_management(output_fc, new_height_field, expression)
 
-    print("Adding GRID ID to final output...")
-    arcpy.AddField_management(output_fc, "GRID_ID", "LONG")
-    arcpy.CalculateField_management(output_fc, "GRID_ID", "!OBJECTID!")
 
     print("Extracting Raster values to points (Insolation)...")
     arcpy.FeatureToPoint_management(output_fc, tmp_points)
@@ -349,7 +381,7 @@ def post_processing():
         arcpy.AlterField_management(tmp_points_with_dtm_and_chm, "RASTERVALU", "CHM_Extraction", "CHM_Extraction")
 
 
-    arcpy.JoinField_management(output_fc, "GRID_ID", tmp_points, "GRID_ID", ["insolation"])
+    arcpy.JoinField_management(output_fc, "grid_id", tmp_points, "grid_id", ["insolation"])
 
     print("Adding an X field...")
     arcpy.AddField_management(output_fc, "X", "Double")
@@ -360,9 +392,15 @@ def post_processing():
     print("Calculating X and Y Coordinates...")
     arcpy.management.CalculateGeometryAttributes(output_fc, "X CENTROID_X;Y CENTROID_Y", '', '', None, "SAME_AS_INPUT")
 
-pre_processing()
+
+def export_to_csv():
+    arcpy.conversion.TableToTable(output_fc, output_csv_folder, output_csv_name)
+
+create_fishnet()
+process_lidar_points()
 count_point_returns()
 post_processing()
+export_to_csv()
 
 end_script = datetime.now()
 print("\nEnd Time: " + str(end_script))
