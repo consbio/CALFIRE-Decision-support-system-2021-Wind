@@ -231,7 +231,6 @@ def process_lidar_points():
                 height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
                 # Delete LiDAR Point errors (points taller than the CHM)
-                # This is causing problems. Ground points are being deleted because they are above the CHM which is 0.
                 if height_from_ground > max_possible_height:
                     print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
                     uc.deleteRow()
