@@ -1,69 +1,71 @@
 ########################################################################################################################
-# File name: 1_NEON_lidar_to_gridded_point_count_at_h.py
+# File name: 1_NEON_lidar_to_gridded_point_count_at_h_iterate.py
 # Author: Mike Gough
 # Date created: 06/01/2023
 # Python Version: 3.x
 # Description:
-# Counts the number of LiDAR point returns for a set of regular vertical height intervals measured from the ground(DTM).
-# The output is a fishnet (vector based grid) with a field containing a point count for each interval
-# For example, the field count_0m_1m stores the number of point returns recorded between 0m and 1m from the ground for
-# each polygon grid.
+#
+# For each tile a NEON study site, this script will generate a CSV containing the number of LiDAR point
+# returns at different height above ground (HAG) intervals on a regular 2-dimensional grid (at a user specified
+# resolution). For example, the field called "count_0m_1m" will store the number of point returns captured between 0-1m
+# from the ground within each grid cell. Similarly, the field called "count_10m_11m will store the number of point
+# returns captured between 10-11m from the ground within each grid cell.
+#
+# The HAG value for each LiDAR point return is determined by extracting the Digital Terrain Model (DTM)
+# value to each point and then subtracting that value from the Z value of the point (HAG = Z - DTM).
+#
+# A list of the tiles to process comes from NEON_tiles_dataset (a reference shapefile provided by NEON).
+#
+# X,Y fields store the coordinate locations for the center of each grid cell.
+# The output will snap to and match the coordinate system of the user defined snap_grid.
 #
 # Refer to the following URL for additional information on the NEON LiDAR data used:
 # https://www.neonscience.org/data-collection/lidar
 #
-# Duration ~ 1.5 hours for a NEON Tile.
+# Duration ~ 1.5 hours per NEON Tile.
 ########################################################################################################################
+
 import arcpy
 import os
 from datetime import datetime
-
 arcpy.env.overwriteOutput = True
 
 # Input Parameters and Paths
 
-version = "v1_10m_z11n"  # Match CRS to NEON SOAP (UTM Zone 10N)
-version = "v2_10m_z10n"  # Match CRS to CFO data (UTM Zone 11N)
-version = "v3_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishnet where there is no data.
-version = "v01_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishnet where there is no data.
-version = "v4_z10n"  # Full extent of the SOAP Tile containing the Tower.
-version = "v5_z10n"  # Project input_points to match the CRS of the CFO data prior to spatial joins.
-version = "v01_z10n_snap_trim"  # Set ENV snap raster to CFO, trim edges of fishnet where there is no data.
-version = "v6"  # First Deliverable (Handle negative elevations with a dedicated field (count_lt_0m))
 version = "v7"  # Iterate all tiles
 
 height_interval = 1
-output_resolution = 10
+output_resolution = 10  # Units are m.
 max_chm_offset = 30  # Max Canopy Height Offset allowed. LiDAR point returns greater than this distance above the CHM will be considered errors and will be deleted (units are m).
 
 NEON_tiles_dataset = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DPQA_2021_merged_tiles.shp"
 NEON_tiles_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\NEON_Tiles\NEON_Tiles.gdb"
 solar_insolation_index = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Source\Solar_Insolation\data\commondata\data0\insol_ind"
-# Note: The output coordinate system will match the coordinate system of the snap_grid below
 snap_grid = r"\\loxodonta\gis\Projects\CALFIRE_Decision_support_system_2021\Workspaces\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\CFO_Data_Processing\Data\Outputs\CFO_Green_Vegetation_By_County_Spring_2020\Fresno-County-California-Vegetation-GreenVegetation-2020-Spring-00010m.tif"
 tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Scratch\Scratch.gdb"
-#intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume.gdb"
 intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume_Iter_tiles.gdb"
 intermediate_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume"
 output_fc_basename = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\lidar_gridded_point_counts"
 output_csv_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV"
 
-# extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
-# extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location_utm_zone_10n"
-# extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000"
-# extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000_utm_zone_10n"
-
 start_script = datetime.now()
 print("\nStart Time: " + str(start_script) + "\n")
 
-print("Getting a list of Tile IDs")
-tile_id_list = []
-with arcpy.da.SearchCursor(NEON_tiles_dataset, ["TileID", "SHAPE@AREA"]) as sc:
-    for row in sc:
-        tile_id = row[0]
-        tile_area = row[1]
-        if tile_id != "merged_tiles" and tile_area > 999990:  # Should be 999970 to get all of the full tiles.
-            tile_id_list.append(tile_id)
+print("### Getting a list of Tile IDs ###")
+
+# Provide a list of tiles to process or get all of them from the NEON_tiles_dataset
+tile_id_list = ["2021_SOAP_5_296000_4107000"]
+
+if not tile_id_list or len(tile_id_list) == 0:
+    tile_id_list = []
+    with arcpy.da.SearchCursor(NEON_tiles_dataset, ["TileID", "SHAPE@AREA"]) as sc:
+        for row in sc:
+            tile_id = row[0]
+            tile_area = row[1]
+            if tile_id != "merged_tiles" and tile_area > 999990:  # Should be 999970 to get all of the full tiles.
+                tile_id_list.append(tile_id)
+
+########################################################################################################################
 
 for tile_id in tile_id_list:
 
@@ -82,6 +84,10 @@ for tile_id in tile_id_list:
         continue
 
     print("### Creating Extent Feature Class for this Tile ###")
+
+    # Test Extents
+    # extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\extent_1_tower_location"
+    # extent_fc = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Inputs\Extents\Extents.gdb\SOAP_tile_298000_4100000"
 
     extent_fc = os.path.join(NEON_tiles_gdb, "tile_" + tile_id)
     expression = "TileID = '" + tile_id + "'"
@@ -443,6 +449,7 @@ for tile_id in tile_id_list:
     count_point_returns()
     post_processing()
     export_to_csv()
+
 
 end_script = datetime.now()
 print("\nEnd Time: " + str(end_script))
