@@ -53,8 +53,9 @@ print("\nStart Time: " + str(start_script) + "\n")
 
 print("### Getting a list of Tile IDs ###")
 
-# Provide a list of tiles to process or get all of them from the NEON_tiles_dataset
-tile_id_list = ["2021_SOAP_5_296000_4107000"]
+# Provide a list of NEON tiles to process, or create a list of all of them from the NEON_tiles_dataset
+#tile_id_list = ["2021_SOAP_5_296000_4107000"]
+tile_id_list = []
 
 if not tile_id_list or len(tile_id_list) == 0:
     tile_id_list = []
@@ -62,14 +63,43 @@ if not tile_id_list or len(tile_id_list) == 0:
         for row in sc:
             tile_id = row[0]
             tile_area = row[1]
-            if tile_id != "merged_tiles" and tile_area > 999990:  # Should be 999970 to get all of the full tiles.
-                tile_id_list.append(tile_id)
+            if tile_id != "merged_tiles" and tile_area > 999968:  # Should be 999968 to get all of the full tiles.
+                # Paths to NEON Data (LiDAR, DTM, CHM) for this tile.
+                tile_id_components = tile_id.split("_")
+                tile_id_selector = "_".join([tile_id_components[-2], tile_id_components[-1]])
+                NEON_lidar_laz_file = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Discrete_return_LiDAR_point_cloud\2019\06\NEON_lidar-point-cloud-line\NEON.D17.SOAP.DP1.30003.001.2019-06.basic.20230523T232633Z.RELEASE-2023\NEON_D17_SOAP_DP1_" + tile_id_selector + "_classified_point_cloud_colorized.laz"
+                NEON_DTM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DP3_" + tile_id_selector + "_DTM.tif"
+                NEON_CHM = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Ecosystem_structure\2019\06\NEON_struct-ecosystem\NEON.D17.SOAP.DP3.30015.001.2019-06.basic.20230524T172838Z.RELEASE-2023\NEON_D17_SOAP_DP3_" + tile_id_selector + "_CHM.tif"
+
+                las_file_parse_date = datetime.strptime(NEON_lidar_laz_file.split("NEON.")[-1].split(".")[5] + '+0000', "%Y-%m%z")  # Specify Time Zone as GMT
+                las_file_date = las_file_parse_date.strftime("%Y%m%d")
+                extent_fc = os.path.join(NEON_tiles_gdb, "tile_" + tile_id)
+                extent_name = extent_fc.split(os.sep)[-1]
+                output_fc = "_".join([output_fc_basename, extent_name, las_file_date, version])
+                output_csv_name = output_fc.split(os.sep)[-1] + ".csv"
+                output_csv = os.path.join(output_csv_folder, output_csv_name)
+
+                if not os.path.exists(NEON_lidar_laz_file):
+                    print("No LiDAR file for this tile. Skipping.")
+                elif not os.path.exists(NEON_DTM):
+                    print("No DTM file")
+                elif not os.path.exists(NEON_CHM):
+                    print("No CHM file")
+                elif os.path.exists(output_csv):
+                    print("CSV file already exists. Skipping.")
+                else:
+                    tile_id_list.append(tile_id)
+
+tile_count = len(tile_id_list)
+print("Tile Count" + str(tile_count))
 
 ########################################################################################################################
+count = 1
 
 for tile_id in tile_id_list:
 
-    print("\nTile: " + tile_id + "\n")
+    print("\nCount: " + str(count) + "/" + str(tile_count) + "\n")
+    print("\nTile ID: " + tile_id + "\n")
 
     tile_id_components = tile_id.split("_")
     tile_id_selector = "_".join([tile_id_components[-2], tile_id_components[-1]])
@@ -127,7 +157,11 @@ for tile_id in tile_id_list:
     # Output Feature Class
     output_fc = "_".join([output_fc_basename, extent_name, las_file_date, version])
     output_csv_name = output_fc.split(os.sep)[-1] + ".csv"
-
+    output_csv = os.path.join(output_csv_folder, output_csv_name)
+    print(output_csv)
+    if os.path.exists(output_csv):
+        print("CSV file already exists. Skipping.")
+        continue
     ########################################################################################################################
 
     #arcpy.env.extent = extent_fc
@@ -266,7 +300,7 @@ for tile_id in tile_id_list:
         arcpy.AddField_management(lidar_points, "height_from_ground", "DOUBLE")
         with arcpy.da.UpdateCursor(lidar_points, ["Z_max", "dtm", "chm", "height_from_ground"]) as uc:
             for row in uc:
-                if row[1]:
+                if row[1] and row[2]:
                     max_possible_height = row[2] + max_chm_offset  # Max height = CHM + max_chm_offset
                     height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
@@ -449,6 +483,8 @@ for tile_id in tile_id_list:
     count_point_returns()
     post_processing()
     export_to_csv()
+
+    count += 1
 
 
 end_script = datetime.now()
