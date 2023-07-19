@@ -19,9 +19,9 @@ import shutil
 import glob
 from osgeo import gdal
 
-input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_0"
-ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_0"
-geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_0"
+#input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_0"
+#ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_0"
+#geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_0"
 
 input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_1"
 ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_1"
