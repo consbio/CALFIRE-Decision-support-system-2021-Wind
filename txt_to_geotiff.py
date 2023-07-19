@@ -10,6 +10,7 @@
 # get_rows_and_cols.py script).
 # This script opens up each text file, adds an ascii header, and replaces commas with spaces -- thereby making an ascii
 # raster. This is then converted to a geotiff.
+# All input files must be in the same SRS/CRS, and have the same extent and number of columns and rows.
 ########################################################################################################################
 
 import os
@@ -17,20 +18,20 @@ import shutil
 import glob
 from osgeo import gdal
 
-#input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_1"
-#ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_1"
-#geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_1"
-
 input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_0"
 ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_0"
 geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_0"
 
-# Coordinate system
-srs = "EPSG:32610"
+input_dir = r"\\loxodonta\GIS\Source_Data\biota\region\NEON_Sites\SOAP\shrubs_and_trees_from_werne\little_tree_base_heights\b_lt_1"
+ascii_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\ascii\b_lt_1"
+geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_1"
 
-# ASCII header params
-ncols = 1456
-nrows = 1425
+# Spatial Reference System
+srs = "EPSG:32610"  # WGS 84 / UTM zone 10N
+
+# ASCII header params (ncols and nrows automatically determined from file)
+# ncols = 1456
+# nrows = 1425
 xllcorner = 826260
 yllcorner = 4099480
 cellsize = 10
@@ -38,17 +39,28 @@ nodata_value = -32768
 
 text_files = glob.glob(input_dir + "/*.txt")
 
+column_count = None
+row_count = None
+
 for text_file in text_files:
     file_name = os.path.basename(text_file).split(".")[0]
-    print(file_name)
+    print("Input File: " + file_name)
     ascii_file = os.path.join(ascii_dir, file_name + ".asc")
     shutil.copyfile(text_file, ascii_file)
     with open(ascii_file, "r") as f:
+        # Get the number of columns and rows from the first file.
+        if not column_count and not row_count:
+            lines = f.readlines()
+            column_count = len(lines[0].split(","))
+            row_count = len(lines)
+            f.seek(0)  # start back at the beginning of the file.
+            print("Column count: " + str(column_count))
+            print("Row count: " + str(row_count))
         csv_text = f.read()
         ascii_text = csv_text.replace(",", " ")
     with open(ascii_file, "w") as f:
-        f.write("ncols " + str(ncols) + "\n")
-        f.write("nrows " + str(nrows) + "\n")
+        f.write("ncols " + str(column_count) + "\n")
+        f.write("nrows " + str(row_count) + "\n")
         f.write("xllcorner " + str(xllcorner) + "\n")
         f.write("yllcorner " + str(yllcorner) + "\n")
         f.write("cellsize " + str(cellsize) + "\n")
