@@ -30,7 +30,7 @@ geotiff_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Da
 # Spatial Reference System
 srs = "EPSG:32610"  # WGS 84 / UTM zone 10N
 
-# ASCII header params (ncols and nrows automatically determined from file)
+# ASCII header params (ncols and nrows automatically determined from input file)
 # ncols = 1456
 # nrows = 1425
 xllcorner = 826260
