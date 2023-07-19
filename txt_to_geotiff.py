@@ -11,7 +11,7 @@
 # This script opens up each text file, adds an ascii header, and replaces commas with spaces -- thereby making a
 # georeferenced ascii raster. This is then converted to a geotiff.
 # All input files must be in the same SRS/CRS, and have the same extent and number of columns and rows.
-# The number of rows and columns is determined automatically from the input file.
+# The number of rows and columns is determined automatically from the first input file.
 ########################################################################################################################
 
 import os
