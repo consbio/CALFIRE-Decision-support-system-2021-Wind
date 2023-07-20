@@ -300,7 +300,7 @@ for tile_id in tile_id_list:
         arcpy.AddField_management(lidar_points, "height_from_ground", "DOUBLE")
         with arcpy.da.UpdateCursor(lidar_points, ["Z_max", "dtm", "chm", "height_from_ground"]) as uc:
             for row in uc:
-                if row[1] and row[2]:
+                if row[1] and row[2]: # Note that this is currently removing points where the CHM is 0.
                     max_possible_height = row[2] + max_chm_offset  # Max height = CHM + max_chm_offset
                     height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
