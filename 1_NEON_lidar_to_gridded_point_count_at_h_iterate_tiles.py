@@ -32,7 +32,7 @@ arcpy.env.overwriteOutput = True
 
 # Input Parameters and Paths
 
-version = "v7"  # Iterate all tiles
+version = "v8"  # Iterate all tiles
 
 height_interval = 1
 output_resolution = 10  # Units are m.
@@ -91,14 +91,14 @@ if not tile_id_list or len(tile_id_list) == 0:
                     tile_id_list.append(tile_id)
 
 tile_count = len(tile_id_list)
-print("Tile Count" + str(tile_count))
+print("\nTile Count: " + str(tile_count))
 
 ########################################################################################################################
 count = 1
 
 for tile_id in tile_id_list:
 
-    print("\nCount: " + str(count) + "/" + str(tile_count) + "\n")
+    print("\nTile: " + str(count) + "/" + str(tile_count) + "\n")
     print("\nTile ID: " + tile_id + "\n")
 
     tile_id_components = tile_id.split("_")
@@ -300,7 +300,7 @@ for tile_id in tile_id_list:
         arcpy.AddField_management(lidar_points, "height_from_ground", "DOUBLE")
         with arcpy.da.UpdateCursor(lidar_points, ["Z_max", "dtm", "chm", "height_from_ground"]) as uc:
             for row in uc:
-                if row[1] and row[2]: # Note that this is currently removing points where the CHM is 0.
+                if row[1] is not None and row[2] is not None: # Note that previously this was removing points where the CHM was 0 becuase used not row[1].
                     max_possible_height = row[2] + max_chm_offset  # Max height = CHM + max_chm_offset
                     height_from_ground = row[0] - row[1]  # Height from ground = Z value from LiDAR - DTM
 
