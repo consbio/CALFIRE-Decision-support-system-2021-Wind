@@ -16,7 +16,13 @@ import pandas as pd
 arcpy.env.overwriteOutput = True
 
 # Input vars & dirs
-veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2019\06\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2019-06.basic.20230127T120753Z.RELEASE-2023"
+
+#version = "v1"
+#veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2019\06\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2019-06.basic.20230127T120753Z.RELEASE-2023"
+
+version = "v2"
+veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2020\03\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2020-03.basic.20230127T120753Z.RELEASE-2023"
+
 input_geotiffs_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_0"
 
 plot_filters = None
@@ -25,12 +31,22 @@ raster_filters = None
 #raster_filters = ["gam010_0_Ns"]
 
 # Intermediate dirs
-intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure\veg_structure.gdb"
-geotiffs_clip_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure\geotiff_clips"
+intermediate_gdb_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure"
+intermediate_gdb = os.path.join(intermediate_gdb_dir, version + ".gdb")
+geotiffs_clip_dir = os.path.join(r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure\geotiff_clips", version)
+tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure\tmp\tmp.gdb"
 tmp_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\veg_structure\tmp"
 
+if not arcpy.Exists(intermediate_gdb):
+    arcpy.CreateFileGDB_management(intermediate_gdb_dir, version)
+
+if not arcpy.Exists(geotiffs_clip_dir):
+    os.mkdir(geotiffs_clip_dir)
+
+NEON_data_date = veg_structure_dir.split("NEON.")[-1].split(".")[5].replace("-", "_")
+
 # Output file:
-output_csv = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV\veg_structure_validation\veg_structure_validation_v1.csv"
+output_csv = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV\veg_structure_validation\veg_structure_validation_" + version + "_" + NEON_data_date + ".csv"
 
 # CRS Info
 arcpy.env.workspace = input_geotiffs_dir
@@ -38,7 +54,6 @@ veg_structure_crs = arcpy.SpatialReference(text='PROJCS["WGS_1984_UTM_Zone_11N",
 raster_crs = arcpy.Describe(arcpy.ListRasters()[0]).spatialReference
 
 # Derived paths
-NEON_data_date = veg_structure_dir.split("NEON.")[-1].split(".")[5].replace("-", "_")
 base_name = "NEON_SOAP_veg_structure_" + NEON_data_date
 
 plot_csv = glob.glob(veg_structure_dir + os.sep + "*perplotperyear*.csv")[0]
@@ -236,19 +251,25 @@ def extract_inversion_data():
 
     with arcpy.da.SearchCursor(mbp_project, ["SHAPE@", "plotID"]) as sc:
         for row in sc:
-            #extent = row[0].extent
+            extent = row[0].extent
             plot_id = row[1]
             if (plot_filters and plot_id in plot_filters) or (not plot_filters):
-                arcpy.MakeFeatureLayer_management(mbp_project, "mbp_project_select", "plotID = '" + plot_id + "'")
+                #arcpy.MakeFeatureLayer_management(mbp_project, "mbp_project_select_" + plot_id, "plotID = '" + plot_id + "'")
+                #arcpy.CopyFeatures_management(mbp_project_select, tmp_plot)
+                #arcpy.env.extent=mbp_project
+                tmp_plot = tmp_gdb + os.sep + "tmp_plot_" + plot_id
+                expression = "plotID = '" + plot_id + "'"
+                arcpy.analysis.Select(mbp_project, tmp_plot, expression)
                 print("Plot ID: " + plot_id)
                 temp_shrub_diff_dict = {}
                 temp_tree_diff_dict = {}
                 for raster in rasters:
                     if (raster_filters and any(x in raster for x in raster_filters)) or (not raster_filters):
                         #cells = arcpy.sa.ExtractByRectangle(raster, extent) # This gives cells with centroids outside the extent.
-                        cells = arcpy.sa.ExtractByMask(raster, "mbp_project_select")
-                        save_raster = os.path.join(geotiffs_clip_dir, raster.split(".")[0] + "_clip_" + plot_id + ".tif")
-                        cells.save(save_raster)
+                        with arcpy.EnvManager(extent=tmp_plot):
+                            cells = arcpy.sa.ExtractByMask(raster, tmp_plot)
+                            save_raster = os.path.join(geotiffs_clip_dir, raster.split(".")[0] + "_clip_" + plot_id + ".tif")
+                            cells.save(save_raster)
                         arr = arcpy.RasterToNumPyArray(save_raster, nodata_to_value=0)
                         sum = round(np.sum(arr), 2)
                         raster_basename = raster.split(".")[0]
