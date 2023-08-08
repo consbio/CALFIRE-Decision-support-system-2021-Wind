@@ -1,2 +1,5 @@
 Archive/
 *.swp
+pycrown/data/
+pycrown/result/
+pycrown/.idea/
