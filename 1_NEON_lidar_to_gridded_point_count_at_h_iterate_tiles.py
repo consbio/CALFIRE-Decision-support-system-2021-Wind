@@ -32,11 +32,14 @@ arcpy.env.overwriteOutput = True
 
 # Input Parameters and Paths
 
-version = "v8"  # Iterate all tiles
+version = "v8"
+version = "v9veg"  # Iterate all tiles
 
 height_interval = 1
 output_resolution = 10  # Units are m.
 max_chm_offset = 30  # Max Canopy Height Offset allowed. LiDAR point returns greater than this distance above the CHM will be considered errors and will be deleted (units are m).
+
+lidar_classes = [3,4,5] # Only vegetation classes.
 
 NEON_tiles_dataset = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Elevation_LiDAR\2021\07\NEON_lidar-elev\NEON.D17.SOAP.DP3.30024.001.2021-07.basic.20230601T181117Z.RELEASE-2023\NEON_D17_SOAP_DPQA_2021_merged_tiles.shp"
 NEON_tiles_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\NEON_Tiles\NEON_Tiles.gdb"
@@ -46,7 +49,7 @@ tmp_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\I
 intermediate_gdb = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume\Volume_Iter_tiles.gdb"
 intermediate_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Volume"
 output_fc_basename = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\Outputs.gdb\lidar_gridded_point_counts"
-output_csv_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV"
+output_csv_folder = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Outputs\CSV\lidar_gridded_point_counts\v9veg"
 
 start_script = datetime.now()
 print("\nStart Time: " + str(start_script) + "\n")
@@ -86,7 +89,7 @@ if not tile_id_list or len(tile_id_list) == 0:
                 elif not os.path.exists(NEON_CHM):
                     print("No CHM file")
                 elif os.path.exists(output_csv):
-                    print("CSV file already exists. Skipping.")
+                    print("CSV file already exists. Skipping " + tile_id + ".")
                 else:
                     tile_id_list.append(tile_id)
 
@@ -279,7 +282,7 @@ for tile_id in tile_id_list:
         arcpy.ddd.LASToMultipoint(
             input_las_file,
             lidar_multipoint,
-            1E-07, [], "ANY_RETURNS", None,
+            1E-07, lidar_classes, "ANY_RETURNS", None,
             #output_crs,
             "",
             "las", 1, "NO_RECURSION")
@@ -307,7 +310,7 @@ for tile_id in tile_id_list:
                     # Delete LiDAR Point errors (points taller than the CHM)
                     # This is causing problems. Ground points are being deleted because they are above the CHM which is 0.
                     if height_from_ground > max_possible_height:
-                        print("Deleting point with height = " + str(height_from_ground) + ". Max height from CHM is " + str(max_possible_height))
+                        print("Deleting point with height = " + str(height_from_ground) + ". CHM is " + str(row[2]) + ". Max possible height (CHM + MAX CHM Offset) is " + str(max_possible_height))
                         uc.deleteRow()
                     else:
                         # Assign all points below the ground a -1. This avoids having hundreds of negative fields.
@@ -357,7 +360,8 @@ for tile_id in tile_id_list:
             print("No LiDAR points...")
             return 0
 
-        h_min = int(min(all_h_values))
+        #h_min = int(min(all_h_values)) # This h_min calculation was causing an error in the post-processing calculation for veg returns. Needs a -1 to 0 range for count_lt_0m. Have to start at -1 or change post-processing calculations.
+        h_min = -1
         h_max = int(round(max(all_h_values), 1))
 
         print("Min Height: " + str(h_min))
@@ -442,6 +446,15 @@ for tile_id in tile_id_list:
         print("Calculating new height field " + new_height_field)
         height_fields = []
         for i in range(5, h_max):
+            height_fields.append("!count_" + str(i) + "m_" + str(i+1) + "m!")
+        expression = " + ".join(height_fields)
+        arcpy.AddField_management(output_fc, new_height_field, "LONG")
+        arcpy.CalculateField_management(output_fc, new_height_field, expression)
+
+        new_height_field = "count_all"
+        print("Calculating new height field " + new_height_field)
+        height_fields = []
+        for i in range(0, h_max):
             height_fields.append("!count_" + str(i) + "m_" + str(i+1) + "m!")
         expression = " + ".join(height_fields)
         arcpy.AddField_management(output_fc, new_height_field, "LONG")
