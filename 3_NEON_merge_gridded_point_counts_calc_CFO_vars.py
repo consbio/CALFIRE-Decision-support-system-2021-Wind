@@ -11,9 +11,9 @@
 # by Dr. Joseph Werne with NorthWest Research Associates and are designed to match the calculations used by the
 # California Forest Observatory (CFO) to make these same calculations:
 #
-#canopy cover = (total counts between canopy height and 5m above ground ) / (total count)
-#ladder fuels = (total counts between 4m and 1m) / (total counts below 4m)
-#green = (total counts in spectral range reflected from photosynthetic vegetation) / (total counts)
+#canopy cover = (total counts between canopy height and 5m above ground ) / (total count) * 100
+#ladder fuels = (total counts between 4m and 1m) / (total counts below 4m) * 100
+#green = (total counts in spectral range reflected from photosynthetic vegetation) / (total counts) * 100
 
 ########################################################################################################################
 import arcpy
