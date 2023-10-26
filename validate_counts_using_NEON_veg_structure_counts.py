@@ -20,10 +20,12 @@ arcpy.env.overwriteOutput = True
 #version = "v1"
 #veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2019\06\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2019-06.basic.20230127T120753Z.RELEASE-2023"
 
-version = "v2"
-veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2020\03\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2020-03.basic.20230127T120753Z.RELEASE-2023"
+#version = "v2" # Note: not a lot of data. Only 1 plot and 41 apparent individuals. Did not use the data from 03/2020
+#veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2020\03\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2020-03.basic.20230127T120753Z.RELEASE-2023"
 
-input_geotiffs_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\geotiff\b_lt_0"
+version = "v42" # Note: not a lot of data. Only 1 plot and 41 apparent individuals. Did not use v2.
+veg_structure_dir = r"\\loxodonta\gis\Source_Data\environment\region\NEON_SITES\SOAP\Vegetation_structure\2019\06\NEON_struct-plant\NEON.D17.SOAP.DP1.10098.001.2019-06.basic.20230127T120753Z.RELEASE-2023"
+input_geotiffs_dir = r"G:\CALFIRE_Decision_support_system_2021_mike_gough\Tasks\NEON\Data\Intermediate\Text_File_to_GeoTiff\v42\geotiff"
 
 plot_filters = None
 raster_filters = None
