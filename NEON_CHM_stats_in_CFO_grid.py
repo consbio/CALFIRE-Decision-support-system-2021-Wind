@@ -4,9 +4,9 @@
 # Date created: 11/03/2023
 # Python Version: 3.x
 # Description:
-# This script mosaics the NEON CHM data (Canopy Height) and summarized the data to the CFO grid using zonal statistics.
-# Zonal statistics are performed in the CRS of the NEON CHM data (UTM 11N), and then joined to the CFO fishnet
-# which is in UTM 10N. This was done in order to avoid projecting and resampling the CHM data.
+# This script mosaics the NEON CHM data (Canopy Height) and summarizes the results to the CFO grid using zonal
+# statistics. Zonal statistics are performed in the CRS of the NEON CHM data (UTM 11N), and then joined to the CFO
+# fishnet which is in UTM 10N. This was done in order to avoid projecting and resampling the CHM data.
 ########################################################################################################################
 
 import arcpy
@@ -109,22 +109,22 @@ def zonal_stats_to_raster():
             in_features=CFO_zone_fishnet,
             field="MAX",
             out_raster=CHM_output_raster_max,
-            cell_size=1
+            cell_size=10
         )
         arcpy.conversion.FeatureToRaster(
             in_features=CFO_zone_fishnet,
             field="STD",
             out_raster=CHM_output_raster_std,
-            cell_size=1
+            cell_size=10
         )
 
 
-mosaic()
-create_fishnet_zones()
-project_fishnet()
-convert_fishnet_to_raster()
-calc_zonal_stats_as_table()
-join_zonal_stats()
+#mosaic()
+#create_fishnet_zones()
+#project_fishnet()
+#convert_fishnet_to_raster()
+#calc_zonal_stats_as_table()
+#join_zonal_stats()
 zonal_stats_to_raster()
 
 
