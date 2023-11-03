@@ -119,12 +119,12 @@ def zonal_stats_to_raster():
         )
 
 
-#mosaic()
-#create_fishnet_zones()
-#project_fishnet()
-#convert_fishnet_to_raster()
-#calc_zonal_stats_as_table()
-#join_zonal_stats()
+mosaic()
+create_fishnet_zones()
+project_fishnet()
+convert_fishnet_to_raster()
+calc_zonal_stats_as_table()
+join_zonal_stats()
 zonal_stats_to_raster()
 
 
